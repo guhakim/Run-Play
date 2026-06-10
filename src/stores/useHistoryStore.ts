@@ -1,6 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { HistoryRun, SplitPace } from '../types/history';
 
 // ─── Demo runs (shown until user completes real runs) ─────────────────────────
@@ -242,16 +240,8 @@ interface HistoryState {
   clearHistory: () => void;
 }
 
-export const useHistoryStore = create<HistoryState>()(
-  persist(
-    (set) => ({
-      runs: DEMO_RUNS,
-      addRun: (run) => set((state) => ({ runs: [run, ...state.runs] })),
-      clearHistory: () => set({ runs: DEMO_RUNS }),
-    }),
-    {
-      name: 'runplay-history-v1',
-      storage: createJSONStorage(() => AsyncStorage),
-    }
-  )
-);
+export const useHistoryStore = create<HistoryState>((set) => ({
+  runs: DEMO_RUNS,
+  addRun: (run) => set((state) => ({ runs: [run, ...state.runs] })),
+  clearHistory: () => set({ runs: DEMO_RUNS }),
+}));

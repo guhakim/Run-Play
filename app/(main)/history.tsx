@@ -412,7 +412,6 @@ export default function HistoryScreen() {
       <Modal
         visible={!!selectedRun}
         animationType="slide"
-        presentationStyle="pageSheet"
         onRequestClose={() => setSelectedRun(null)}
       >
         {selectedRun && (
