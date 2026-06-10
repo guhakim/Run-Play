@@ -57,9 +57,9 @@ tailwind.config = {
   input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:22px; background:#c3f400; border-radius:50%; cursor:pointer; box-shadow:0 0 10px rgba(171,214,0,0.5); }
   input[type=range]::-moz-range-thumb { width:22px; height:22px; background:#c3f400; border-radius:50%; border:none; cursor:pointer; }
 
-  /* Screen show/hide */
-  .screen { display:none; }
-  .screen.active { display:flex; }
+  /* Screen show/hide — position:fixed so each screen fills viewport independently */
+  .screen { display:none; position:fixed; top:0; left:0; right:0; bottom:0; overflow-y:auto; -webkit-overflow-scrolling:touch; z-index:10; background:#111317; }
+  .screen.active { display:flex; flex-direction:column; }
 
   /* Countdown */
   @keyframes popIn { 0%{transform:scale(0.5);opacity:0} 60%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
@@ -122,7 +122,7 @@ tailwind.config = {
 <body class="bg-background text-on-surface min-h-screen overflow-x-hidden select-none">
 
 <!-- ═══════════════════════ SCREEN 1: HOME ═══════════════════════ -->
-<div id="homeScreen" class="screen active flex-col min-h-screen pb-24">
+<div id="homeScreen" class="screen active flex-col pb-24">
   <header class="fixed top-0 w-full z-50 flex justify-between items-center px-5 h-16 bg-background/80 backdrop-blur-md border-b border-outline-variant/30">
     <div class="flex items-center gap-2">
       <div class="h-9 w-9 rounded-full bg-primary-bright flex items-center justify-center glow-sm">
@@ -191,7 +191,7 @@ tailwind.config = {
 </div>
 
 <!-- ═══════════════════════ SCREEN 2: GOAL SETUP ═══════════════════════ -->
-<div id="setupScreen" class="screen flex-col min-h-screen">
+<div id="setupScreen" class="screen flex-col">
   <header class="flex items-center justify-between px-5 pt-14 pb-4">
     <button onclick="goTo('setupScreen','homeScreen')" class="flex items-center gap-1 text-on-surface-variant">
       <span class="material-symbols-outlined">arrow_back</span>
@@ -234,13 +234,13 @@ tailwind.config = {
 </div>
 
 <!-- ═══════════════════════ SCREEN 3: COUNTDOWN ═══════════════════════ -->
-<div id="countdownScreen" class="screen flex-col items-center justify-center min-h-screen">
+<div id="countdownScreen" class="screen flex-col items-center justify-center">
   <p id="countdownNum" class="font-display font-black text-center text-on-surface pop" style="font-size:160px;line-height:1;">3</p>
   <p class="text-on-surface-variant font-mono text-sm mt-4">출발 준비...</p>
 </div>
 
 <!-- ═══════════════════════ SCREEN 4: ACTIVE RUNNING ═══════════════════════ -->
-<div id="activeScreen" class="screen flex-col min-h-screen">
+<div id="activeScreen" class="screen flex-col">
   <div class="fixed top-0 left-0 w-full h-1 bg-surface-highest z-50">
     <div id="progressFill" class="h-full bg-primary-bright" style="width:0%"></div>
   </div>
@@ -288,7 +288,7 @@ tailwind.config = {
 </div>
 
 <!-- ═══════════════════════ SCREEN 5: FINISH ═══════════════════════ -->
-<div id="finishScreen" class="screen flex-col items-center justify-center min-h-screen px-5 text-center">
+<div id="finishScreen" class="screen flex-col items-center justify-center px-5 text-center">
   <div class="text-8xl mb-4">🎉</div>
   <h2 class="font-display font-black text-4xl text-on-surface mb-2">완주 성공!</h2>
   <p class="text-on-surface-variant mb-8">목표를 완벽하게 정복했어요</p>
@@ -304,7 +304,7 @@ tailwind.config = {
 </div>
 
 <!-- ═══════════════════════ SCREEN 6: REPORT ═══════════════════════ -->
-<div id="reportScreen" class="screen flex-col min-h-screen pb-10">
+<div id="reportScreen" class="screen flex-col pb-10">
   <header class="px-5 pt-14 pb-4">
     <p class="text-xs font-mono text-primary tracking-widest uppercase mb-1">Today's Run</p>
     <h2 class="font-display font-black text-3xl text-on-surface">갓생 리포트 📊</h2>
@@ -332,7 +332,7 @@ tailwind.config = {
 </div>
 
 <!-- ═══════════════════════ SCREEN 7: HISTORY ═══════════════════════ -->
-<div id="historyScreen" class="screen flex-col min-h-screen pb-24">
+<div id="historyScreen" class="screen flex-col pb-24">
 
   <!-- Fixed header -->
   <header class="pt-14 px-5 pb-3">
@@ -1068,20 +1068,23 @@ function closeDetail() {
 // ─── Navigation helpers ────────────────────────────────────────────────────────
 function goTo(from, to) {
   document.getElementById(from).classList.remove('active');
-  document.getElementById(to).classList.add('active');
-  window.scrollTo(0, 0);
+  const target = document.getElementById(to);
+  target.classList.add('active');
+  target.scrollTop = 0;
 }
 
 function openHistory() {
   goTo('homeScreen', 'historyScreen');
   renderHistory(curFilter);
+  document.getElementById('historyScreen').scrollTop = 0;
 }
 
 function goHome() {
   ['setupScreen','countdownScreen','activeScreen','finishScreen','reportScreen','historyScreen']
     .forEach(id => document.getElementById(id).classList.remove('active'));
-  document.getElementById('homeScreen').classList.add('active');
-  window.scrollTo(0, 0);
+  const home = document.getElementById('homeScreen');
+  home.classList.add('active');
+  home.scrollTop = 0;
 }
 
 // ─── Setup screen ─────────────────────────────────────────────────────────────
