@@ -1,25 +1,62 @@
 {
   "expo": {
-    "name": "run-play",
+    "name": "런플",
     "slug": "run-play",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "scheme": "runplay",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.runplay.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "런플이 달리기 거리와 경로를 추적하기 위해 위치 정보를 사용합니다.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "런플이 백그라운드에서도 달리기를 추적하기 위해 위치 정보를 사용합니다.",
+        "NSLocationAlwaysUsageDescription": "런플이 백그라운드에서도 달리기를 추적하기 위해 위치 정보를 사용합니다.",
+        "NSHealthShareUsageDescription": "런플이 심박수 데이터를 읽어 안전한 러닝을 도와줍니다.",
+        "NSHealthUpdateUsageDescription": "런플이 러닝 운동 데이터를 건강 앱에 기록합니다.",
+        "UIBackgroundModes": ["location", "audio", "fetch"]
+      }
     },
     "android": {
+      "package": "com.runplay.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0A0A0A",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundImage": "./assets/android-icon-background.png"
       },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "ACTIVITY_RECOGNITION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sharing",
+      "expo-font",
+      "expo-splash-screen",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "런플이 달리기를 추적하기 위해 위치 정보를 사용합니다.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }

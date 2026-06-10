@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html class="dark" lang="ko">
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>런플 (Run-Play) | 프로토타입</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<link href="https://fonts.googleapis.com/css2?family=Anybody:wght@400;700;800&family=Hanken+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        background: "#111317",
+        surface: "#1e2023",
+        "surface-low": "#1a1c1f",
+        "surface-high": "#282a2e",
+        "surface-highest": "#333539",
+        primary: "#abd600",
+        "primary-bright": "#c3f400",
+        "on-primary": "#283500",
+        secondary: "#c5c6d1",
+        "on-surface": "#e2e2e7",
+        "on-surface-variant": "#c4c9ac",
+        outline: "#8e9379",
+        "outline-variant": "#444933",
+        error: "#ffb4ab",
+        danger: "#ff3b30",
+      },
+      fontFamily: {
+        display: ["Anybody", "sans-serif"],
+        body: ["Hanken Grotesk", "sans-serif"],
+        mono: ["JetBrains Mono", "monospace"],
+      },
+    },
+  },
+};
+</script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Hanken Grotesk', sans-serif; }
+  .glass {
+    background: rgba(30, 32, 35, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .glow { box-shadow: 0 0 24px rgba(171,214,0,0.35); }
+  .glow-sm { box-shadow: 0 0 12px rgba(171,214,0,0.25); }
+
+  /* Custom slider */
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%; height: 4px;
+    background: rgba(142,147,121,0.25);
+    border-radius: 2px; outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 22px; height: 22px;
+    background: #c3f400;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(171,214,0,0.5);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 22px; height: 22px;
+    background: #c3f400;
+    border-radius: 50%; border: none;
+    cursor: pointer;
+  }
+
+  /* Screens */
+  .screen { display: none; }
+  .screen.active { display: flex; }
+
+  /* Countdown */
+  @keyframes popIn {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.15); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .pop { animation: popIn 0.4s ease-out; }
+
+  /* Coaching toast */
+  @keyframes slideDown {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  .toast-in { animation: slideDown 0.3s ease-out; }
+
+  /* Points burst */
+  @keyframes floatUp {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-60px) scale(1.4); opacity: 0; }
+  }
+  .float-up { animation: floatUp 1.2s ease-out forwards; }
+
+  /* Pulse HR */
+  @keyframes hrPulse {
+    0%, 100% { color: #e2e2e7; }
+    50% { color: #ff3b30; }
+  }
+  .hr-danger { animation: hrPulse 0.8s ease infinite; }
+
+  /* Progress bar fill */
+  #progressFill { transition: width 1s linear; }
+</style>
+</head>
+<body class="bg-background text-on-surface min-h-screen overflow-x-hidden select-none">
+
+<!-- ═══════════════════════════════════════════════
+     SCREEN 1: HOME
+═══════════════════════════════════════════════ -->
+<div id="homeScreen" class="screen active flex-col min-h-screen pb-24">
+
+  <!-- Header -->
+  <header class="fixed top-0 w-full z-50 flex justify-between items-center px-5 h-16 bg-background/80 backdrop-blur-md border-b border-outline-variant/30">
+    <div class="flex items-center gap-2">
+      <div class="h-9 w-9 rounded-full bg-primary-bright flex items-center justify-center glow-sm">
+        <span class="font-display font-black text-sm text-on-primary">RP</span>
+      </div>
+      <span class="font-display font-bold text-lg text-on-surface tracking-tight">런플</span>
+    </div>
+    <div class="flex items-center gap-1">
+      <span class="material-symbols-outlined text-on-surface-variant text-2xl">notifications</span>
+      <span class="material-symbols-outlined text-on-surface-variant text-2xl">person_circle</span>
+    </div>
+  </header>
+
+  <!-- Content -->
+  <main class="flex-1 pt-20 px-5">
+
+    <!-- Greeting -->
+    <div class="mb-6">
+      <p class="text-on-surface-variant text-sm mb-1">안녕하세요 👋</p>
+      <h1 class="font-display font-black text-4xl text-on-surface leading-tight">
+        오늘도<br><span class="text-primary-bright">런플</span> 해볼까요?
+      </h1>
+    </div>
+
+    <!-- Stats row -->
+    <div class="grid grid-cols-2 gap-3 mb-5">
+      <div class="glass rounded-2xl p-4">
+        <p class="text-xs font-mono text-on-surface-variant tracking-widest uppercase mb-1">총 포인트</p>
+        <p class="font-display font-black text-3xl text-primary-bright">0P</p>
+      </div>
+      <div class="glass rounded-2xl p-4">
+        <p class="text-xs font-mono text-on-surface-variant tracking-widest uppercase mb-1">연속 기록</p>
+        <p class="font-display font-black text-3xl text-on-surface">0일</p>
+      </div>
+    </div>
+
+    <!-- Watch status -->
+    <div class="glass rounded-2xl p-4 mb-5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="material-symbols-outlined text-primary text-2xl">watch</span>
+        <div>
+          <p class="text-sm font-semibold text-on-surface">워치 연결 대기 중</p>
+          <p class="text-xs text-on-surface-variant">심박수 준비 중...</p>
+        </div>
+      </div>
+      <button class="text-xs font-mono text-primary border border-primary/40 rounded-full px-3 py-1">연결</button>
+    </div>
+
+    <!-- AI coach card -->
+    <div class="glass rounded-2xl p-5 mb-5 border border-primary/20">
+      <p class="text-xs font-mono text-primary tracking-widest uppercase mb-2">AI 페이스 코치</p>
+      <p class="text-on-surface text-sm leading-relaxed">
+        "오늘 날씨 좋네요! 달리기 딱 좋은 날이에요. 목표를 설정하고 함께 달려볼까요? 🔥"
+      </p>
+    </div>
+
+    <!-- Big start button -->
+    <button onclick="goToSetup()" class="w-full bg-primary-bright text-on-primary font-display font-black text-2xl rounded-2xl py-5 glow active:scale-95 transition-transform">
+      달리기 시작
+      <span class="block text-sm font-mono font-semibold opacity-70 mt-1">START RUNNING 🏃</span>
+    </button>
+  </main>
+
+  <!-- Bottom nav -->
+  <nav class="fixed bottom-0 w-full bg-surface border-t border-outline-variant/30 flex justify-around py-3">
+    <button class="flex flex-col items-center gap-1">
+      <span class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1">home</span>
+      <span class="text-xs text-primary font-mono">홈</span>
+    </button>
+    <button class="flex flex-col items-center gap-1">
+      <span class="material-symbols-outlined text-on-surface-variant">timeline</span>
+      <span class="text-xs text-on-surface-variant font-mono">기록</span>
+    </button>
+    <button class="flex flex-col items-center gap-1">
+      <span class="material-symbols-outlined text-on-surface-variant">person</span>
+      <span class="text-xs text-on-surface-variant font-mono">프로필</span>
+    </button>
+  </nav>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SCREEN 2: GOAL SETUP
+═══════════════════════════════════════════════ -->
+<div id="setupScreen" class="screen flex-col min-h-screen">
+
+  <!-- Header -->
+  <header class="flex items-center justify-between px-5 pt-14 pb-4">
+    <button onclick="goTo('homeScreen','setupScreen')" class="flex items-center gap-1 text-on-surface-variant">
+      <span class="material-symbols-outlined">arrow_back</span>
+    </button>
+    <h2 class="font-display font-black text-xl text-on-surface">오늘의 목표</h2>
+    <div class="w-8"></div>
+  </header>
+
+  <main class="flex-1 px-5 pb-32 overflow-y-auto">
+
+    <!-- Distance -->
+    <div class="mb-8">
+      <p class="text-xs font-mono text-on-surface-variant tracking-widest uppercase mb-3">목표 거리</p>
+      <p class="font-display font-black text-6xl text-on-surface mb-4" id="distDisplay">5km</p>
+      <div class="flex flex-wrap gap-2">
+        <button onclick="setDist(1)"  class="dist-chip px-4 py-2 rounded-full border border-outline-variant text-sm font-semibold text-on-surface-variant">1km</button>
+        <button onclick="setDist(2)"  class="dist-chip px-4 py-2 rounded-full border border-outline-variant text-sm font-semibold text-on-surface-variant">2km</button>
+        <button onclick="setDist(3)"  class="dist-chip px-4 py-2 rounded-full border border-outline-variant text-sm font-semibold text-on-surface-variant">3km</button>
+        <button onclick="setDist(5)"  class="dist-chip px-4 py-2 rounded-full border border-primary-bright/60 text-sm font-semibold text-primary-bright bg-primary-bright/10">5km</button>
+        <button onclick="setDist(7)"  class="dist-chip px-4 py-2 rounded-full border border-outline-variant text-sm font-semibold text-on-surface-variant">7km</button>
+        <button onclick="setDist(10)" class="dist-chip px-4 py-2 rounded-full border border-outline-variant text-sm font-semibold text-on-surface-variant">10km</button>
+        <button onclick="setDist(21)" class="dist-chip px-4 py-2 rounded-full border border-outline-variant text-sm font-semibold text-on-surface-variant">하프</button>
+      </div>
+    </div>
+
+    <!-- Pace -->
+    <div class="mb-8">
+      <p class="text-xs font-mono text-on-surface-variant tracking-widest uppercase mb-3">목표 페이스</p>
+      <p class="font-display font-black text-6xl text-on-surface mb-1" id="paceDisplay">5'30"</p>
+      <p class="text-on-surface-variant text-sm mb-4">/ km</p>
+      <input type="range" min="0" max="16" step="1" value="6" id="paceSlider" oninput="updatePace(this.value)" class="w-full mb-2">
+      <div class="flex justify-between text-xs font-mono text-on-surface-variant">
+        <span>빠르게 4:00</span>
+        <span>천천히 8:00</span>
+      </div>
+    </div>
+
+    <!-- Summary card -->
+    <div class="glass rounded-2xl p-5 mb-6 border border-primary/20">
+      <p class="text-xs font-mono text-primary tracking-widest uppercase mb-2">목표 요약</p>
+      <p class="text-on-surface font-semibold text-lg" id="summaryText">5km를 5분 30초 페이스로</p>
+      <p class="text-on-surface-variant text-sm mt-1" id="estTime">예상 완주 시간: 27분 30초</p>
+    </div>
+
+    <!-- Start button -->
+    <button onclick="startCountdown()" class="w-full bg-primary-bright text-on-primary font-display font-black text-2xl rounded-2xl py-5 glow active:scale-95 transition-transform">
+      준비됐어! 🏃
+    </button>
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SCREEN 3: COUNTDOWN
+═══════════════════════════════════════════════ -->
+<div id="countdownScreen" class="screen flex-col items-center justify-center min-h-screen">
+  <p id="countdownNum" class="font-display font-black text-center text-on-surface pop" style="font-size: 160px; line-height:1;">3</p>
+  <p class="text-on-surface-variant font-mono text-sm mt-4">출발 준비...</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SCREEN 4: ACTIVE RUNNING
+═══════════════════════════════════════════════ -->
+<div id="activeScreen" class="screen flex-col min-h-screen">
+
+  <!-- Progress bar -->
+  <div class="fixed top-0 left-0 w-full h-1 bg-surface-highest z-50">
+    <div id="progressFill" class="h-full bg-primary-bright" style="width:0%"></div>
+  </div>
+
+  <!-- Coaching toast -->
+  <div id="coachingToast" class="hidden fixed top-4 left-4 right-4 z-50 glass rounded-2xl p-4 border-l-4 border-primary-bright toast-in">
+    <p class="text-xs font-mono text-primary uppercase tracking-widest mb-1">AI 코치</p>
+    <p id="coachingText" class="text-on-surface text-sm leading-relaxed"></p>
+  </div>
+
+  <!-- Auto-pause banner -->
+  <div id="pauseBanner" class="hidden fixed top-4 left-4 right-4 z-40 bg-danger/90 rounded-2xl p-3 text-center">
+    <p class="text-white text-sm font-semibold">⏸ 자동 일시정지 · 움직이면 재시작</p>
+  </div>
+
+  <!-- Main metrics -->
+  <div class="flex-1 flex flex-col justify-center px-5 pt-8">
+
+    <!-- Big distance -->
+    <div class="text-center mb-8">
+      <p class="font-display font-black text-on-surface mb-1" id="distRun" style="font-size: 80px; line-height:1;">0.00km</p>
+      <p class="text-on-surface-variant text-sm font-mono">달린 거리</p>
+    </div>
+
+    <!-- Secondary grid -->
+    <div class="grid grid-cols-2 gap-3 mb-6">
+      <div class="glass rounded-2xl p-4 text-center">
+        <p class="font-display font-black text-2xl text-on-surface" id="timerRun">0:00</p>
+        <p class="text-xs font-mono text-on-surface-variant mt-1">시간</p>
+      </div>
+      <div class="glass rounded-2xl p-4 text-center">
+        <p class="font-display font-black text-2xl text-on-surface" id="curPaceRun">--:--</p>
+        <p class="text-xs font-mono text-on-surface-variant mt-1">현재 페이스</p>
+      </div>
+      <div class="glass rounded-2xl p-4 text-center">
+        <p class="font-display font-black text-2xl text-on-surface" id="avgPaceRun">--:--</p>
+        <p class="text-xs font-mono text-on-surface-variant mt-1">평균 페이스</p>
+      </div>
+      <div class="glass rounded-2xl p-4 text-center">
+        <p class="font-display font-black text-2xl" id="hrRun">-- bpm</p>
+        <p class="text-xs font-mono text-on-surface-variant mt-1">심박수</p>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex gap-3">
+      <button onclick="togglePause()" id="pauseBtn" class="w-14 h-14 rounded-full glass flex items-center justify-center text-on-surface">
+        <span class="material-symbols-outlined text-2xl" id="pauseIcon">pause</span>
+      </button>
+      <button onclick="endRun()" class="flex-1 h-14 glass rounded-2xl text-on-surface font-semibold">
+        러닝 종료
+      </button>
+    </div>
+
+    <!-- Points mini counter -->
+    <div class="text-center mt-4">
+      <p class="text-on-surface-variant text-xs font-mono">이번 런 포인트</p>
+      <p class="font-display font-bold text-primary-bright text-xl" id="livePoints">+0P</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SCREEN 5: FINISH / COOLDOWN
+═══════════════════════════════════════════════ -->
+<div id="finishScreen" class="screen flex-col items-center justify-center min-h-screen px-5 text-center">
+  <div class="text-8xl mb-4">🎉</div>
+  <h2 class="font-display font-black text-4xl text-on-surface mb-2">완주 성공!</h2>
+  <p class="text-on-surface-variant mb-8">목표를 완벽하게 정복했어요</p>
+
+  <div class="glass rounded-2xl p-6 w-full mb-6">
+    <div class="flex justify-between mb-4">
+      <span class="text-on-surface-variant">달린 거리</span>
+      <span class="font-display font-black text-on-surface" id="finDist">-</span>
+    </div>
+    <div class="flex justify-between mb-4">
+      <span class="text-on-surface-variant">총 시간</span>
+      <span class="font-display font-black text-on-surface" id="finTime">-</span>
+    </div>
+    <div class="flex justify-between">
+      <span class="text-on-surface-variant">평균 페이스</span>
+      <span class="font-display font-black text-on-surface" id="finPace">-</span>
+    </div>
+  </div>
+
+  <p class="text-on-surface-variant text-sm mb-8">잠깐 걸으면서 호흡을 고르세요 🧘</p>
+
+  <button onclick="goToReport()" class="w-full bg-primary-bright text-on-primary font-display font-black text-xl rounded-2xl py-4 glow active:scale-95 transition-transform">
+    갓생 리포트 보기 →
+  </button>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SCREEN 6: REPORT
+═══════════════════════════════════════════════ -->
+<div id="reportScreen" class="screen flex-col min-h-screen pb-10">
+  <header class="px-5 pt-14 pb-4">
+    <p class="text-xs font-mono text-primary tracking-widest uppercase mb-1">Today's Run</p>
+    <h2 class="font-display font-black text-3xl text-on-surface">갓생 리포트 📊</h2>
+  </header>
+
+  <main class="flex-1 px-5 overflow-y-auto">
+
+    <!-- Stats -->
+    <div class="glass rounded-2xl divide-y divide-outline-variant/30 mb-4">
+      <div class="flex justify-between items-center p-4">
+        <span class="text-on-surface-variant">총 거리</span>
+        <span class="font-display font-black text-on-surface text-lg" id="repDist">-</span>
+      </div>
+      <div class="flex justify-between items-center p-4">
+        <span class="text-on-surface-variant">총 시간</span>
+        <span class="font-display font-black text-on-surface text-lg" id="repTime">-</span>
+      </div>
+      <div class="flex justify-between items-center p-4">
+        <span class="text-on-surface-variant">평균 페이스</span>
+        <span class="font-display font-black text-on-surface text-lg" id="repPace">-</span>
+      </div>
+      <div class="flex justify-between items-center p-4">
+        <span class="text-on-surface-variant">최고 심박수</span>
+        <span class="font-display font-black text-on-surface text-lg" id="repMaxHR">-</span>
+      </div>
+    </div>
+
+    <!-- Points card -->
+    <div class="rounded-2xl p-6 text-center mb-4 glow" style="background: linear-gradient(135deg, #283500, #3c5000);">
+      <p class="text-xs font-mono tracking-widest uppercase mb-2" style="color:#abd600;">오늘 획득한 포인트</p>
+      <p class="font-display font-black text-on-surface" id="repPoints" style="font-size:64px;line-height:1;">-</p>
+      <p style="color:#abd600;" class="text-sm mt-2">🎁 다음 업데이트에서 런플 상점 오픈!</p>
+    </div>
+
+    <!-- AI coaching recap -->
+    <div class="glass rounded-2xl p-4 mb-4">
+      <p class="text-xs font-mono text-primary tracking-widest uppercase mb-3">AI 코칭 기록</p>
+      <div id="coachingLog" class="space-y-2"></div>
+    </div>
+
+    <!-- Share button -->
+    <button onclick="shareResult()" class="w-full py-4 rounded-2xl font-display font-black text-lg text-white mb-3 active:scale-95 transition-transform" style="background: linear-gradient(135deg, #833AB4, #E1306C, #FD1D1D);">
+      📸 오완런 인증하기 (인스타)
+    </button>
+
+    <button onclick="goTo('reportScreen','homeScreen')" class="w-full py-4 glass rounded-2xl font-semibold text-on-surface active:scale-95 transition-transform">
+      홈으로
+    </button>
+  </main>
+</div>
+
+<!-- Share toast -->
+<div id="shareToast" class="hidden fixed inset-0 z-50 flex items-end justify-center pb-10 px-5">
+  <div class="glass rounded-2xl p-5 w-full max-w-sm text-center border border-primary/30">
+    <div class="text-4xl mb-3">📱</div>
+    <p class="font-display font-black text-on-surface text-xl mb-2">공유 카드 생성 완료!</p>
+    <p class="text-on-surface-variant text-sm mb-4">실 기기에서 인스타그램으로 공유됩니다.</p>
+    <button onclick="document.getElementById('shareToast').classList.add('hidden')" class="bg-primary-bright text-on-primary font-bold rounded-xl px-6 py-2">확인</button>
+  </div>
+</div>
+
+<script>
+// ─── State ───
+let targetDist = 5;
+let targetPaceSec = 330; // 5:30
+let elapsed = 0;
+let distCovered = 0;
+let isPaused = false;
+let runTimer = null;
+let hrTimer = null;
+let simHR = 120;
+let coachingMessages = [];
+let firedTriggers = {};
+
+// Pace steps: 4:00 → 8:00, step 15s (0→16)
+const PACE_STEPS = [];
+for (let s = 240; s <= 480; s += 15) PACE_STEPS.push(s);
+
+// ─── Formatters ───
+function fmtPace(sec) {
+  if (!sec || sec <= 0) return '--:--';
+  const m = Math.floor(sec/60), s = sec%60;
+  return `${m}′${String(s).padStart(2,'0')}″`;
+}
+function fmtDist(km) {
+  if (km < 1) return `${Math.round(km*1000)}m`;
+  return `${km.toFixed(2)}km`;
+}
+function fmtDuration(sec) {
+  const m = Math.floor(sec/60), s = sec%60;
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+function fmtDurationFull(sec) {
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${m}분 ${String(s).padStart(2,'0')}초`;
+}
+
+// ─── Navigation ───
+function goTo(from, to) {
+  document.getElementById(from).classList.remove('active');
+  document.getElementById(to).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function goToSetup() {
+  goTo('homeScreen', 'setupScreen');
+}
+
+// ─── Setup ───
+function setDist(km) {
+  targetDist = km;
+  document.getElementById('distDisplay').textContent = km + 'km';
+  document.querySelectorAll('.dist-chip').forEach(c => {
+    const isActive = c.textContent.trim().startsWith(km);
+    c.className = isActive
+      ? 'dist-chip px-4 py-2 rounded-full border border-primary-bright/60 text-sm font-semibold text-primary-bright bg-primary-bright/10'
+      : 'dist-chip px-4 py-2 rounded-full border border-outline-variant text-sm font-semibold text-on-surface-variant';
+  });
+  updateSummary();
+}
+
+function updatePace(idx) {
+  targetPaceSec = PACE_STEPS[parseInt(idx)];
+  document.getElementById('paceDisplay').textContent = fmtPace(targetPaceSec);
+  updateSummary();
+}
+
+function updateSummary() {
+  const pMin = Math.floor(targetPaceSec/60), pSec = targetPaceSec%60;
+  document.getElementById('summaryText').textContent =
+    `${targetDist}km를 ${pMin}분 ${String(pSec).padStart(2,'0')}초 페이스로`;
+  const total = Math.round(targetDist * targetPaceSec);
+  document.getElementById('estTime').textContent = `예상 완주 시간: ${fmtDurationFull(total)}`;
+}
+
+// ─── Countdown ───
+function startCountdown() {
+  goTo('setupScreen', 'countdownScreen');
+  let count = 3;
+  const el = document.getElementById('countdownNum');
+
+  function tick() {
+    el.textContent = count > 0 ? count : '달려!';
+    el.classList.remove('pop');
+    void el.offsetWidth; // reflow
+    el.classList.add('pop');
+    if (count > 0) {
+      count--;
+      setTimeout(tick, 900);
+    } else {
+      setTimeout(startRun, 600);
+    }
+  }
+  tick();
+}
+
+// ─── Run ───
+function startRun() {
+  elapsed = 0; distCovered = 0; isPaused = false;
+  simHR = 115; coachingMessages = []; firedTriggers = {};
+
+  goTo('countdownScreen', 'activeScreen');
+  document.getElementById('pauseBanner').classList.add('hidden');
+
+  // Fire START_RUN coaching
+  setTimeout(() => fireCoaching('START_RUN', '반가워요! 오늘 목표는 ' + targetDist + 'km, 목표 페이스는 ' + fmtPace(targetPaceSec) + '네요. 가볍게 출발해 볼게요! 렛츠 런플! 🔥'), 800);
+
+  // Timer
+  runTimer = setInterval(() => {
+    if (isPaused) return;
+    elapsed++;
+
+    // Simulate movement
+    const speed = 2.5 + Math.random() * 0.8; // ~3 m/s
+    const addedKm = speed / 1000;
+    distCovered = Math.min(distCovered + addedKm, targetDist * 1.02);
+
+    // Simulate HR
+    simHR += (Math.random() - 0.45) * 4;
+    simHR = Math.max(115, Math.min(185, simHR));
+    const hrInt = Math.round(simHR);
+
+    // Current pace (simulation: target ±variation)
+    const curPace = targetPaceSec + Math.round((Math.random()-0.5)*20);
+    const avgPace = elapsed > 0 ? Math.round((elapsed/60) / (distCovered || 0.001) * 60) : targetPaceSec;
+
+    // Update UI
+    document.getElementById('distRun').textContent = fmtDist(distCovered);
+    document.getElementById('timerRun').textContent = fmtDuration(elapsed);
+    document.getElementById('curPaceRun').textContent = fmtPace(curPace);
+    document.getElementById('avgPaceRun').textContent = fmtPace(avgPace);
+
+    const hrEl = document.getElementById('hrRun');
+    hrEl.textContent = hrInt + ' bpm';
+    hrEl.className = hrInt >= 175
+      ? 'font-display font-black text-2xl hr-danger'
+      : 'font-display font-black text-2xl text-on-surface';
+
+    // Progress
+    const pct = Math.min((distCovered / targetDist) * 100, 100);
+    document.getElementById('progressFill').style.width = pct + '%';
+
+    // Live points
+    const pts = Math.floor(distCovered * 100);
+    document.getElementById('livePoints').textContent = '+' + pts + 'P';
+
+    // Triggers
+    checkTriggers(distCovered, curPace, hrInt);
+
+    // Finish
+    if (distCovered >= targetDist) {
+      clearInterval(runTimer);
+      clearInterval(hrTimer);
+      setTimeout(() => {
+        fireCoaching('FINISH_RUN', `정말 멋져요! ${targetDist}km 완주 성공! 오늘 목표를 완벽하게 정복하셨습니다. 최고예요! 🎉`);
+        setTimeout(endRun, 2500);
+      }, 500);
+    }
+  }, 300); // faster for demo
+}
+
+function checkTriggers(dist, pace, hr) {
+  const now = Date.now();
+
+  // HIGH_HEART_RATE
+  if (hr >= 178 && (!firedTriggers.HR || now - firedTriggers.HR > 30000)) {
+    firedTriggers.HR = now;
+    fireCoaching('HIGH_HEART_RATE_ALERT', `경고! 심박수가 ${hr}bpm까지 올라갔어요. 안전이 제일 중요해요! 숨을 깊게 쉬고 페이스를 낮춰봐요.`);
+    return;
+  }
+
+  // GOAL_NEAR (last 500m)
+  if (dist >= targetDist - 0.5 && !firedTriggers.GOAL_NEAR) {
+    firedTriggers.GOAL_NEAR = true;
+    fireCoaching('GOAL_NEAR', '거의 다 왔어요! 마지막 500m, 같이 스퍼트 올려봐요! 갓생 완주 가자! 🔥');
+    return;
+  }
+
+  // DISTANCE_MILESTONE
+  const mile = Math.floor(dist);
+  if (mile >= 1 && (!firedTriggers['M'+mile])) {
+    firedTriggers['M'+mile] = true;
+    fireCoaching('DISTANCE_MILESTONE', `${mile}km 통과! 현재 페이스 ${fmtPace(pace)}로 아주 안정적이에요. 이대로 가봐요!`);
+    return;
+  }
+
+  // OVER_PACE
+  if (pace < targetPaceSec - 15 && (!firedTriggers.OP || now - firedTriggers.OP > 20000)) {
+    firedTriggers.OP = now;
+    fireCoaching('OVER_PACE_WARNING', `어엇, 페이스가 너무 빨라요! ${fmtPace(pace)}라니, 조금 속도를 낮춰봐요.`);
+  }
+}
+
+function fireCoaching(trigger, text) {
+  coachingMessages.push({ trigger, text });
+  const toast = document.getElementById('coachingToast');
+  const textEl = document.getElementById('coachingText');
+  textEl.textContent = text;
+  toast.classList.remove('hidden');
+  toast.classList.add('toast-in');
+  setTimeout(() => {
+    toast.classList.add('hidden');
+  }, 5000);
+}
+
+function togglePause() {
+  isPaused = !isPaused;
+  document.getElementById('pauseIcon').textContent = isPaused ? 'play_arrow' : 'pause';
+  document.getElementById('pauseBanner').classList.toggle('hidden', !isPaused);
+  if (isPaused) {
+    fireCoaching('AUTO_PAUSE', '잠시 기록을 멈출게요. 호흡을 고르고 다시 달려봐요!');
+  }
+}
+
+function endRun() {
+  clearInterval(runTimer);
+  clearInterval(hrTimer);
+  // Set finish screen values
+  document.getElementById('finDist').textContent = fmtDist(distCovered);
+  document.getElementById('finTime').textContent = fmtDuration(elapsed);
+  const avgP = elapsed > 0 && distCovered > 0 ? Math.round((elapsed/60) / distCovered * 60) : targetPaceSec;
+  document.getElementById('finPace').textContent = fmtPace(avgP) + ' /km';
+  goTo('activeScreen', 'finishScreen');
+}
+
+// ─── Report ───
+function goToReport() {
+  const avgP = elapsed > 0 && distCovered > 0 ? Math.round((elapsed/60) / distCovered * 60) : targetPaceSec;
+  const points = Math.floor(distCovered * 100) + (distCovered >= targetDist ? 50 : 0) + 15;
+
+  document.getElementById('repDist').textContent = fmtDist(distCovered);
+  document.getElementById('repTime').textContent = fmtDuration(elapsed);
+  document.getElementById('repPace').textContent = fmtPace(avgP) + ' /km';
+  document.getElementById('repMaxHR').textContent = Math.round(simHR) + ' bpm';
+  document.getElementById('repPoints').textContent = '+' + points + 'P';
+
+  const log = document.getElementById('coachingLog');
+  log.innerHTML = coachingMessages.slice(-4).map(m =>
+    `<p class="text-sm text-on-surface-variant leading-relaxed">• ${m.text}</p>`
+  ).join('');
+
+  goTo('finishScreen', 'reportScreen');
+}
+
+function shareResult() {
+  document.getElementById('shareToast').classList.remove('hidden');
+}
+
+// Init
+updateSummary();
+</script>
+</body>
+</html>
