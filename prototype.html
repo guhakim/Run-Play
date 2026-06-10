@@ -1173,12 +1173,22 @@ function startCountdown() {
 // ─── TTS (Web Speech API, 한국어) ────────────────────────────────────────────
 function speak(text) {
   if (!window.speechSynthesis) return;
-  const clean = text.replace(/[\u{1F300}-\u{1FAFF}⏸✅]/gu, '').trim();
+  const clean = text.replace(/[\u{1F300}-\u{1FAFF}⏸✅🔊]/gu, '').trim();
   window.speechSynthesis.cancel();
   const utt = new SpeechSynthesisUtterance(clean);
   utt.lang = 'ko-KR';
-  utt.rate = 1.05;
-  utt.pitch = 1.0;
+  utt.rate = 0.95;   // 약간 느리게 — 친근하고 명확하게
+  utt.pitch = 1.15;  // 여성 음성 톤
+
+  // 브라우저에 로드된 한국어 여성 음성 중 가장 자연스러운 것 선택
+  const voices = window.speechSynthesis.getVoices();
+  const femaleKo = voices.find(v =>
+    v.lang.startsWith('ko') && /여성|female|yuna|seoyeon|현서|미리/i.test(v.name)
+  ) || voices.find(v =>
+    v.lang.startsWith('ko') && v.name.toLowerCase().includes('google')
+  ) || voices.find(v => v.lang.startsWith('ko'));
+  if (femaleKo) utt.voice = femaleKo;
+
   window.speechSynthesis.speak(utt);
 }
 
@@ -1246,7 +1256,7 @@ function onDeviceMotion(e) {
   if (isMoving && !wasMoving && autoPausedByMotion) {
     autoPausedByMotion = false; isPaused = false; motionlessFrames = 0;
     document.getElementById('pauseBanner').classList.add('hidden');
-    speak('다시 달리기 시작! 파이팅!');
+    speak('움직임 감지됐어요, 다시 달려봐요!');
   }
   if (isMoving !== wasMoving) setMotionUI(isMoving);
 }
@@ -1291,7 +1301,7 @@ function startRun() {
   document.getElementById('pauseBanner').classList.add('hidden');
   initMotion();
 
-  setTimeout(() => fireCoaching('START_RUN', `반가워요! 오늘 목표는 ${targetDist}km, 목표 페이스는 ${fmtPace(targetPaceSec)}네요. 가볍게 출발해 볼게요! 렛츠 런플! 🔥`), 800);
+  setTimeout(() => fireCoaching('START_RUN', `좋아요, 출발해봐요! 오늘 ${targetDist}킬로, 페이스는 ${fmtPace(targetPaceSec)} 목표로 가는 거예요. 너무 빠르지 않게, 처음엔 편하게 시작해요.`), 800);
 
   runTimer = setInterval(() => {
     if (isPaused) return;
@@ -1303,7 +1313,7 @@ function startRun() {
       if (motionlessFrames >= AUTO_PAUSE_FRAMES && !autoPausedByMotion) {
         autoPausedByMotion = true; isPaused = true; motionlessFrames = 0;
         document.getElementById('pauseBanner').classList.remove('hidden');
-        speak('잠깐 멈췄네요. 자동으로 일시정지 할게요. 다시 달리기 시작하면 재개돼요.');
+        speak('잠깐 멈췄죠? 괜찮아요, 쉬어도 돼요. 다시 달리기 시작하면 바로 재개할게요.');
         setMotionUI(false);
       }
       return;
@@ -1338,7 +1348,7 @@ function startRun() {
       clearInterval(runTimer);
       stopMotionSensor();
       setTimeout(() => {
-        fireCoaching('FINISH_RUN', `정말 멋져요! ${targetDist}km 완주 성공! 오늘 목표를 완벽하게 정복하셨습니다. 최고예요! 🎉`);
+        fireCoaching('FINISH_RUN', `다 왔어요! ${targetDist}킬로 완주했어요! 진짜 잘 달렸어요, 오늘 고생 많았고 자랑스러워요!`);
         setTimeout(endRun, 2500);
       }, 500);
     }
@@ -1349,23 +1359,23 @@ function checkTriggers(dist, pace, hr) {
   const now = Date.now();
   if (hr >= 178 && (!firedTriggers.HR || now - firedTriggers.HR > 30000)) {
     firedTriggers.HR = now;
-    fireCoaching('HIGH_HEART_RATE_ALERT', `경고! 심박수가 ${hr}bpm까지 올라갔어요. 안전이 제일 중요해요! 숨을 깊게 쉬고 페이스를 낮춰봐요.`);
+    fireCoaching('HIGH_HEART_RATE_ALERT', `잠깐요, 심박수가 좀 높아요. 지금 ${hr}이에요. 살짝 속도 줄이고 코로 천천히 숨 쉬어봐요, 괜찮을 거예요.`);
     return;
   }
   if (dist >= targetDist - 0.5 && !firedTriggers.GOAL_NEAR) {
     firedTriggers.GOAL_NEAR = true;
-    fireCoaching('GOAL_NEAR', '거의 다 왔어요! 마지막 500m, 같이 스퍼트 올려봐요! 갓생 완주 가자! 🔥');
+    fireCoaching('GOAL_NEAR', '500미터 남았어요! 거의 다 왔으니까 조금만 더 힘내요. 같이 끝내봐요!');
     return;
   }
   const mile = Math.floor(dist);
   if (mile >= 1 && !firedTriggers['M'+mile]) {
     firedTriggers['M'+mile] = true;
-    fireCoaching('DISTANCE_MILESTONE', `${mile}km 통과! 현재 페이스 ${fmtPace(pace)}로 아주 안정적이에요. 이대로 가봐요!`);
+    fireCoaching('DISTANCE_MILESTONE', `${mile}킬로 지났어요! 페이스 ${fmtPace(pace)}, 잘 가고 있어요. 이 리듬 유지해요!`);
     return;
   }
   if (pace < targetPaceSec - 15 && (!firedTriggers.OP || now - firedTriggers.OP > 20000)) {
     firedTriggers.OP = now;
-    fireCoaching('OVER_PACE_WARNING', `어엇, 페이스가 너무 빨라요! ${fmtPace(pace)}라니, 조금 속도를 낮춰봐요.`);
+    fireCoaching('OVER_PACE_WARNING', `조금 빨리 달리고 있어요! 지금 ${fmtPace(pace)}인데, 뒤에 힘 빠질 수 있으니까 살짝 속도 줄여봐요.`);
   }
 }
 
@@ -1385,10 +1395,10 @@ function togglePause() {
   document.getElementById('pauseIcon').textContent = isPaused ? 'play_arrow' : 'pause';
   document.getElementById('pauseBanner').classList.toggle('hidden', !isPaused);
   if (isPaused) {
-    speak('잠시 기록을 멈출게요. 호흡을 고르고 다시 달려봐요!');
-    fireCoaching('AUTO_PAUSE', '잠시 기록을 멈출게요. 호흡을 고르고 다시 달려봐요!');
+    speak('잠깐 쉬어가요. 호흡 고르고 준비되면 다시 달려요!');
+    fireCoaching('AUTO_PAUSE', '잠깐 쉬어가요. 호흡 고르고 준비되면 다시 달려요!');
   } else {
-    speak('다시 달리기 시작합니다! 파이팅!');
+    speak('좋아요, 다시 가봐요!');
   }
 }
 
