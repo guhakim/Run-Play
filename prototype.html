@@ -89,6 +89,34 @@ tailwind.config = {
   .ftab { transition: all 0.2s; }
   .ftab.on { background:#abd600; }
   .ftab.on span { color:#283500 !important; }
+
+  /* Profile overlay */
+  #profileOverlay { transform: translateX(100%); transition: transform 0.35s cubic-bezier(0.32,0.72,0,1); }
+  #profileOverlay.open { transform: translateX(0); }
+
+  /* Login modal */
+  #loginModal { opacity:0; pointer-events:none; transition: opacity 0.25s; }
+  #loginModal.open { opacity:1; pointer-events:all; }
+
+  /* Toggle switch */
+  .toggle { position:relative; width:44px; height:24px; flex-shrink:0; }
+  .toggle input { opacity:0; width:0; height:0; }
+  .toggle-track { position:absolute; inset:0; background:#333539; border-radius:12px; transition:.25s; cursor:pointer; }
+  .toggle input:checked + .toggle-track { background:#abd600; }
+  .toggle-track::before { content:''; position:absolute; width:18px; height:18px; left:3px; top:3px; background:#e2e2e7; border-radius:50%; transition:.25s; }
+  .toggle input:checked + .toggle-track::before { transform:translateX(20px); background:#283500; }
+
+  /* Settings row */
+  .settings-row { display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid rgba(68,73,51,0.3); cursor:pointer; }
+  .settings-row:last-child { border-bottom:none; }
+  .settings-row:active { opacity:0.7; }
+
+  /* Badge card */
+  .badge-card { display:flex; flex-direction:column; align-items:center; gap:4px; padding:12px 8px; border-radius:16px; min-width:70px; border:1px solid rgba(68,73,51,0.5); }
+  .badge-card.locked { opacity:0.35; filter:grayscale(1); }
+
+  /* Tier bar */
+  .tier-fill { height:4px; border-radius:2px; transition:width 0.8s cubic-bezier(0.4,0,0.2,1); }
 </style>
 </head>
 <body class="bg-background text-on-surface min-h-screen overflow-x-hidden select-none">
@@ -155,7 +183,7 @@ tailwind.config = {
       <span class="material-symbols-outlined text-on-surface-variant">timeline</span>
       <span class="text-xs text-on-surface-variant font-mono">기록</span>
     </button>
-    <button class="flex flex-col items-center gap-1">
+    <button onclick="openProfile()" class="flex flex-col items-center gap-1">
       <span class="material-symbols-outlined text-on-surface-variant">person</span>
       <span class="text-xs text-on-surface-variant font-mono">프로필</span>
     </button>
@@ -355,11 +383,349 @@ tailwind.config = {
       <span class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1">timeline</span>
       <span class="text-xs text-primary font-mono">기록</span>
     </button>
-    <button class="flex flex-col items-center gap-1">
+    <button onclick="openProfile()" class="flex flex-col items-center gap-1">
       <span class="material-symbols-outlined text-on-surface-variant">person</span>
       <span class="text-xs text-on-surface-variant font-mono">프로필</span>
     </button>
   </nav>
+</div>
+
+<!-- ═══════════════════════ SCREEN 8: PROFILE ═══════════════════════ -->
+<div id="profileOverlay" class="fixed inset-0 z-40 flex flex-col" style="background:#111317">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between px-5 pt-14 pb-4 border-b border-outline-variant/30">
+    <button onclick="closeProfile()" class="w-9 h-9 rounded-full flex items-center justify-center border border-outline-variant/50 text-on-surface" style="background:#1e2023">
+      <span class="material-symbols-outlined text-lg">arrow_back</span>
+    </button>
+    <span class="font-display font-black text-lg text-on-surface">프로필</span>
+    <div class="w-9"></div>
+  </div>
+
+  <!-- Scrollable body -->
+  <div class="flex-1 overflow-y-auto px-5 pb-12">
+
+    <!-- ── 로그인 카드 ── -->
+    <div id="profileLoggedOut" class="rounded-2xl p-6 mt-4 mb-4 text-center card-border" style="background:#1e2023">
+      <div class="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style="background:#282a2e;font-size:36px">🏃</div>
+      <p class="font-display font-black text-xl text-on-surface mb-1">런플에 오신 것을 환영해요!</p>
+      <p class="text-sm text-on-surface-variant mb-5">로그인하면 기록이 클라우드에 저장되고<br>AI 코치가 더 정확하게 분석해요.</p>
+      <button onclick="showLoginModal()" class="w-full flex items-center justify-center gap-3 py-3.5 rounded-xl font-semibold text-sm transition-all active:scale-95" style="background:#fff;color:#1e1e1e">
+        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+        Google로 로그인
+      </button>
+      <p class="text-xs text-on-surface-variant mt-3">또는 게스트로 계속하기 →</p>
+    </div>
+
+    <div id="profileLoggedIn" class="hidden rounded-2xl p-5 mt-4 mb-4 card-border" style="background:#1e2023">
+      <div class="flex items-center gap-4">
+        <div id="profileAvatar" class="w-14 h-14 rounded-full flex items-center justify-center font-display font-black text-xl text-on-primary glow-sm" style="background:#abd600;flex-shrink:0">K</div>
+        <div class="flex-1 min-w-0">
+          <p id="profileName" class="font-display font-black text-lg text-on-surface truncate">구하김</p>
+          <p id="profileEmail" class="text-xs text-on-surface-variant truncate mt-0.5">kgh3274@gmail.com</p>
+          <div class="flex items-center gap-1 mt-1.5">
+            <svg width="12" height="12" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+            <span class="text-xs text-on-surface-variant">Google 계정 연결됨</span>
+          </div>
+        </div>
+        <button onclick="editProfileName()" class="w-8 h-8 rounded-full flex items-center justify-center" style="background:#282a2e">
+          <span class="material-symbols-outlined text-on-surface-variant" style="font-size:16px">edit</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── 나의 통계 ── -->
+    <p class="text-xs font-mono tracking-widest uppercase text-on-surface-variant mb-2 mt-1">나의 통계</p>
+    <div class="grid grid-cols-2 gap-2 mb-4">
+      <div class="rounded-2xl p-4 card-border" style="background:#1e2023">
+        <p class="font-display font-black text-2xl text-on-surface" id="statTotalRuns">4회</p>
+        <p class="text-xs text-on-surface-variant mt-0.5">총 러닝</p>
+      </div>
+      <div class="rounded-2xl p-4 card-border" style="background:#1e2023">
+        <p class="font-display font-black text-2xl text-on-surface" id="statTotalDist">22.9km</p>
+        <p class="text-xs text-on-surface-variant mt-0.5">총 거리</p>
+      </div>
+      <div class="rounded-2xl p-4 card-border" style="background:#1e2023">
+        <p class="font-display font-black text-2xl" id="statTotalPoints" style="color:#abd600">2,584P</p>
+        <p class="text-xs text-on-surface-variant mt-0.5">총 포인트</p>
+      </div>
+      <div class="rounded-2xl p-4 card-border" style="background:#1e2023">
+        <p class="font-display font-black text-2xl text-on-surface" id="statBestPace">5′35″</p>
+        <p class="text-xs text-on-surface-variant mt-0.5">최고 페이스 /km</p>
+      </div>
+    </div>
+
+    <!-- ── 등급 ── -->
+    <div class="rounded-2xl p-4 mb-4 card-border" style="background:#1e2023">
+      <div class="flex justify-between items-center mb-2">
+        <p class="text-sm font-bold text-on-surface">🏅 런너 등급</p>
+        <span class="text-xs font-bold px-2 py-0.5 rounded-full" style="background:rgba(171,214,0,0.12);color:#abd600">브론즈 러너</span>
+      </div>
+      <div class="flex justify-between text-xs text-on-surface-variant mb-1.5">
+        <span>현재 22.9km</span><span>다음 등급까지 27.1km</span>
+      </div>
+      <div class="w-full h-1.5 rounded-full" style="background:#333539">
+        <div class="tier-fill rounded-full" style="width:45%;background:linear-gradient(90deg,#abd600,#c3f400)"></div>
+      </div>
+      <div class="flex justify-between mt-2">
+        <span class="text-xs text-on-surface-variant">브론즈 0km</span>
+        <span class="text-xs text-on-surface-variant">실버 50km</span>
+        <span class="text-xs text-on-surface-variant">골드 200km</span>
+      </div>
+    </div>
+
+    <!-- ── 배지 ── -->
+    <p class="text-xs font-mono tracking-widest uppercase text-on-surface-variant mb-2">획득한 배지</p>
+    <div class="flex gap-2 overflow-x-auto pb-2 mb-4" style="scrollbar-width:none">
+      <div class="badge-card" style="background:#1e2023">
+        <span style="font-size:28px">🏃</span>
+        <span class="text-xs font-bold text-on-surface text-center" style="font-size:10px">첫 런플</span>
+      </div>
+      <div class="badge-card" style="background:#1e2023">
+        <span style="font-size:28px">5️⃣</span>
+        <span class="text-xs font-bold text-on-surface text-center" style="font-size:10px">5km 완주</span>
+      </div>
+      <div class="badge-card" style="background:#1e2023">
+        <span style="font-size:28px">🔟</span>
+        <span class="text-xs font-bold text-on-surface text-center" style="font-size:10px">10km 완주</span>
+      </div>
+      <div class="badge-card" style="background:#1e2023">
+        <span style="font-size:28px">🔥</span>
+        <span class="text-xs font-bold text-on-surface text-center" style="font-size:10px">3일 연속</span>
+      </div>
+      <div class="badge-card locked" style="background:#1e2023">
+        <span style="font-size:28px">🗓</span>
+        <span class="text-xs text-on-surface-variant text-center" style="font-size:10px">7일 연속</span>
+      </div>
+      <div class="badge-card locked" style="background:#1e2023">
+        <span style="font-size:28px">🏅</span>
+        <span class="text-xs text-on-surface-variant text-center" style="font-size:10px">하프마라톤</span>
+      </div>
+      <div class="badge-card locked" style="background:#1e2023">
+        <span style="font-size:28px">💯</span>
+        <span class="text-xs text-on-surface-variant text-center" style="font-size:10px">100km 달성</span>
+      </div>
+    </div>
+
+    <!-- ── 설정 ── -->
+    <p class="text-xs font-mono tracking-widest uppercase text-on-surface-variant mb-2">설정</p>
+    <div class="rounded-2xl px-4 mb-4 card-border" style="background:#1e2023">
+
+      <!-- 알림 -->
+      <div class="settings-row">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-on-surface-variant" style="font-size:20px">notifications</span>
+          <span class="text-sm font-semibold text-on-surface">러닝 알림</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" checked onchange="this.checked">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <!-- AI 코칭 음성 -->
+      <div class="settings-row" onclick="showVoiceModal()">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-on-surface-variant" style="font-size:20px">record_voice_over</span>
+          <div>
+            <p class="text-sm font-semibold text-on-surface">AI 코칭 목소리</p>
+            <p class="text-xs text-on-surface-variant mt-0.5" id="voiceLabel">한국어 여성 (기본)</p>
+          </div>
+        </div>
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">chevron_right</span>
+      </div>
+
+      <!-- 자동 일시정지 -->
+      <div class="settings-row">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-on-surface-variant" style="font-size:20px">pause_circle</span>
+          <div>
+            <p class="text-sm font-semibold text-on-surface">자동 일시정지</p>
+            <p class="text-xs text-on-surface-variant mt-0.5">속도가 느려지면 자동으로 멈춤</p>
+          </div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" checked onchange="this.checked">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <!-- 거리 단위 -->
+      <div class="settings-row" onclick="toggleUnit()">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-on-surface-variant" style="font-size:20px">straighten</span>
+          <span class="text-sm font-semibold text-on-surface">거리 단위</span>
+        </div>
+        <div class="flex items-center gap-1">
+          <span class="text-sm text-on-surface-variant" id="unitLabel">킬로미터 (km)</span>
+          <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">chevron_right</span>
+        </div>
+      </div>
+
+      <!-- 스마트워치 연결 -->
+      <div class="settings-row" onclick="showWatchModal()">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-on-surface-variant" style="font-size:20px">watch</span>
+          <div>
+            <p class="text-sm font-semibold text-on-surface">스마트워치 연결</p>
+            <p class="text-xs text-on-surface-variant mt-0.5">Apple Watch / Galaxy Watch</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1">
+          <span class="text-xs px-2 py-0.5 rounded-full" style="background:#333539;color:#8e9379">미연결</span>
+          <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">chevron_right</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── 앱 정보 ── -->
+    <p class="text-xs font-mono tracking-widest uppercase text-on-surface-variant mb-2">앱 정보</p>
+    <div class="rounded-2xl px-4 mb-4 card-border" style="background:#1e2023">
+      <div class="settings-row" onclick="openLink('privacy')">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-on-surface-variant" style="font-size:20px">shield</span>
+          <span class="text-sm font-semibold text-on-surface">개인정보 처리방침</span>
+        </div>
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">open_in_new</span>
+      </div>
+      <div class="settings-row" onclick="openLink('terms')">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-on-surface-variant" style="font-size:20px">description</span>
+          <span class="text-sm font-semibold text-on-surface">서비스 이용약관</span>
+        </div>
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">open_in_new</span>
+      </div>
+      <div class="settings-row" style="cursor:default">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-on-surface-variant" style="font-size:20px">info</span>
+          <span class="text-sm font-semibold text-on-surface">앱 버전</span>
+        </div>
+        <span class="text-sm text-on-surface-variant">v0.1.0 MVP</span>
+      </div>
+      <div class="settings-row" onclick="showFeedback()">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-on-surface-variant" style="font-size:20px">feedback</span>
+          <span class="text-sm font-semibold text-on-surface">피드백 보내기</span>
+        </div>
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:18px">chevron_right</span>
+      </div>
+    </div>
+
+    <!-- ── 로그인/로그아웃 ── -->
+    <div id="logoutSection" class="hidden mb-4">
+      <button onclick="handleLogout()" class="w-full py-3.5 rounded-2xl text-sm font-semibold text-danger text-center card-border active:scale-95 transition-transform" style="background:#1e2023">
+        로그아웃
+      </button>
+    </div>
+    <div id="loginSection" class="mb-4">
+      <button onclick="showLoginModal()" class="w-full py-3.5 rounded-2xl text-sm font-semibold text-on-surface text-center card-border active:scale-95 transition-transform" style="background:#1e2023">
+        로그인 / 회원가입
+      </button>
+    </div>
+
+    <p class="text-center text-xs text-on-surface-variant pb-2">런플 (Run-Play) · MZ세대를 위한 AI 러닝 코치</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════ LOGIN MODAL ═══════════════════════ -->
+<div id="loginModal" class="fixed inset-0 z-50 flex items-end justify-center pb-0">
+  <div onclick="hideLoginModal()" class="absolute inset-0" style="background:rgba(0,0,0,0.6)"></div>
+  <div class="relative w-full rounded-t-3xl px-6 pt-6 pb-10" style="background:#1e2023;max-width:480px">
+    <!-- Handle -->
+    <div class="w-10 h-1 rounded-full mx-auto mb-6" style="background:#444933"></div>
+    <h3 class="font-display font-black text-2xl text-on-surface mb-2 text-center">런플 시작하기</h3>
+    <p class="text-sm text-on-surface-variant text-center mb-6">SNS 계정으로 간편하게 로그인하세요</p>
+
+    <!-- Google 로그인 -->
+    <button id="googleLoginBtn" onclick="handleGoogleLogin()" class="w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-semibold text-sm mb-3 transition-all active:scale-95" style="background:#fff;color:#1e1e1e">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+      <span id="googleLoginText">Google로 로그인</span>
+    </button>
+
+    <!-- Apple 로그인 -->
+    <button class="w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-semibold text-sm mb-3 transition-all active:scale-95" style="background:#000;color:#fff;border:1px solid #333">
+      <svg width="16" height="18" viewBox="0 0 16 18" fill="white"><path d="M13.17 9.53c-.01-1.57.7-2.76 2.14-3.64-.83-1.19-2.07-1.84-3.72-1.96-1.56-.11-3.27.91-3.9.91-.67 0-2.17-.86-3.36-.86C2.02 4.04.07 5.69.07 9.07c0 .99.18 2 .54 3.04.47 1.34 2.18 4.62 3.95 4.56 1.12-.03 1.92-.75 3.39-.75 1.42 0 2.16.75 3.39.75 1.79-.03 3.32-3.04 3.78-4.39-2.41-1.12-1.95-3.68-1.95-3.75z"/><path d="M10.52 2.98c1.23-1.45 1.11-2.77 1.07-3.24C10.48-.19 9.18.41 8.41 1.14c-.85.78-1.35 1.74-1.29 2.97 1.19.1 2.27-.47 3.4-1.13z"/></svg>
+      Apple로 로그인
+    </button>
+
+    <!-- 게스트 -->
+    <button onclick="hideLoginModal()" class="w-full py-3.5 rounded-2xl text-sm font-semibold text-on-surface-variant text-center transition-all active:scale-95 card-border" style="background:#282a2e">
+      로그인 없이 게스트로 계속하기
+    </button>
+
+    <p class="text-xs text-on-surface-variant text-center mt-4 leading-relaxed">로그인하면 <span style="color:#abd600">개인정보 처리방침</span>과 <span style="color:#abd600">이용약관</span>에 동의하는 것으로 간주됩니다.</p>
+  </div>
+</div>
+
+<!-- Voice modal -->
+<div id="voiceModal" class="fixed inset-0 z-50 hidden items-end justify-center">
+  <div onclick="document.getElementById('voiceModal').classList.add('hidden');document.getElementById('voiceModal').style.display='none'" class="absolute inset-0" style="background:rgba(0,0,0,0.6)"></div>
+  <div class="relative w-full rounded-t-3xl px-6 pt-6 pb-10" style="background:#1e2023;max-width:480px">
+    <div class="w-10 h-1 rounded-full mx-auto mb-5" style="background:#444933"></div>
+    <h3 class="font-display font-black text-xl text-on-surface mb-4">AI 코칭 목소리 선택</h3>
+    <div id="voiceOptions" class="space-y-2">
+      <button onclick="selectVoice('한국어 여성 (기본)')" class="voice-opt w-full flex items-center justify-between p-4 rounded-xl active:scale-95 transition-transform" style="background:#282a2e;border:1px solid #abd600">
+        <div class="flex items-center gap-3"><span style="font-size:20px">👩</span><div><p class="text-sm font-semibold text-on-surface">한국어 여성 (기본)</p><p class="text-xs text-on-surface-variant">부드럽고 친근한 목소리</p></div></div>
+        <span class="material-symbols-outlined text-primary" style="font-size:20px">check_circle</span>
+      </button>
+      <button onclick="selectVoice('한국어 남성')" class="voice-opt w-full flex items-center justify-between p-4 rounded-xl active:scale-95 transition-transform" style="background:#282a2e;border:1px solid rgba(68,73,51,0.4)">
+        <div class="flex items-center gap-3"><span style="font-size:20px">👨</span><div><p class="text-sm font-semibold text-on-surface">한국어 남성</p><p class="text-xs text-on-surface-variant">힘차고 카리스마 있는 목소리</p></div></div>
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:20px">radio_button_unchecked</span>
+      </button>
+      <button onclick="selectVoice('에너지 모드 (빠른 템포)')" class="voice-opt w-full flex items-center justify-between p-4 rounded-xl active:scale-95 transition-transform" style="background:#282a2e;border:1px solid rgba(68,73,51,0.4)">
+        <div class="flex items-center gap-3"><span style="font-size:20px">⚡</span><div><p class="text-sm font-semibold text-on-surface">에너지 모드</p><p class="text-xs text-on-surface-variant">빠른 템포, 짧고 강렬한 코칭</p></div></div>
+        <span class="material-symbols-outlined text-on-surface-variant" style="font-size:20px">radio_button_unchecked</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Watch modal -->
+<div id="watchModal" class="fixed inset-0 z-50 hidden items-end justify-center">
+  <div onclick="closeWatchModal()" class="absolute inset-0" style="background:rgba(0,0,0,0.6)"></div>
+  <div class="relative w-full rounded-t-3xl px-6 pt-6 pb-10" style="background:#1e2023;max-width:480px">
+    <div class="w-10 h-1 rounded-full mx-auto mb-5" style="background:#444933"></div>
+    <h3 class="font-display font-black text-xl text-on-surface mb-1">스마트워치 연결</h3>
+    <p class="text-sm text-on-surface-variant mb-5">심박수 데이터를 워치에서 바로 받아요</p>
+    <div class="space-y-3 mb-5">
+      <button onclick="connectWatch('apple')" class="w-full flex items-center gap-4 p-4 rounded-xl active:scale-95 transition-transform card-border" style="background:#282a2e">
+        <span style="font-size:28px">⌚</span>
+        <div class="text-left">
+          <p class="text-sm font-semibold text-on-surface">Apple Watch</p>
+          <p class="text-xs text-on-surface-variant mt-0.5">HealthKit으로 심박수 연동</p>
+        </div>
+        <span class="ml-auto text-xs px-2 py-0.5 rounded-full" style="background:#333539;color:#8e9379">연결하기</span>
+      </button>
+      <button onclick="connectWatch('galaxy')" class="w-full flex items-center gap-4 p-4 rounded-xl active:scale-95 transition-transform card-border" style="background:#282a2e">
+        <span style="font-size:28px">🔵</span>
+        <div class="text-left">
+          <p class="text-sm font-semibold text-on-surface">Galaxy Watch</p>
+          <p class="text-xs text-on-surface-variant mt-0.5">Google Fit으로 심박수 연동</p>
+        </div>
+        <span class="ml-auto text-xs px-2 py-0.5 rounded-full" style="background:#333539;color:#8e9379">연결하기</span>
+      </button>
+      <button onclick="connectWatch('garmin')" class="w-full flex items-center gap-4 p-4 rounded-xl active:scale-95 transition-transform card-border" style="background:#282a2e">
+        <span style="font-size:28px">🏃</span>
+        <div class="text-left">
+          <p class="text-sm font-semibold text-on-surface">Garmin</p>
+          <p class="text-xs text-on-surface-variant mt-0.5">Garmin Connect 연동</p>
+        </div>
+        <span class="ml-auto text-xs px-2 py-0.5 rounded-full" style="background:#333539;color:#8e9379">연결하기</span>
+      </button>
+    </div>
+    <p class="text-xs text-on-surface-variant text-center">워치 없이도 GPS 기반으로 달릴 수 있어요</p>
+  </div>
+</div>
+
+<!-- Feedback toast -->
+<div id="feedbackToast" class="hidden fixed inset-0 z-50 flex items-center justify-center px-5">
+  <div class="glass rounded-2xl p-6 w-full max-w-sm text-center border border-primary/30">
+    <div class="text-4xl mb-3">💌</div>
+    <p class="font-display font-black text-on-surface text-xl mb-2">피드백 감사해요!</p>
+    <p class="text-on-surface-variant text-sm mb-4">실 앱에서는 이메일/인앱 폼이 열립니다.</p>
+    <button onclick="document.getElementById('feedbackToast').classList.add('hidden')" class="bg-primary-bright text-on-primary font-bold rounded-xl px-6 py-2">확인</button>
+  </div>
 </div>
 
 <!-- ═══════════════════════ DETAIL OVERLAY ═══════════════════════ -->
@@ -916,6 +1282,165 @@ function goToReport() {
 
 function shareResult() {
   document.getElementById('shareToast').classList.remove('hidden');
+}
+
+// ─── Profile ──────────────────────────────────────────────────────────────────
+let isLoggedIn = false;
+let curUnit = 'km';
+let curVoice = '한국어 여성 (기본)';
+
+function openProfile() {
+  refreshProfileStats();
+  const overlay = document.getElementById('profileOverlay');
+  overlay.style.display = 'flex';
+  requestAnimationFrame(() => overlay.classList.add('open'));
+}
+
+function closeProfile() {
+  const overlay = document.getElementById('profileOverlay');
+  overlay.classList.remove('open');
+  setTimeout(() => { overlay.style.display = 'none'; }, 360);
+}
+
+function refreshProfileStats() {
+  const allRuns = DEMO_RUNS;
+  const totalDist = allRuns.reduce((s,r) => s + (r.distKm || 0), 0);
+  const totalPts  = allRuns.reduce((s,r) => s + (r.points || 0), 0);
+  const bestPaceSec = Math.min(...allRuns.map(r => {
+    // parse pace string like 5′35″ → seconds
+    const m = r.pace ? r.pace.match(/(\d+)′(\d+)″/) : null;
+    return m ? parseInt(m[1])*60 + parseInt(m[2]) : 9999;
+  }));
+
+  document.getElementById('statTotalRuns').textContent = allRuns.length + '회';
+  document.getElementById('statTotalDist').textContent = totalDist.toFixed(1) + 'km';
+  document.getElementById('statTotalPoints').textContent = totalPts.toLocaleString() + 'P';
+  document.getElementById('statBestPace').textContent = bestPaceSec < 9999 ? fmtPace(bestPaceSec) : '--:--';
+}
+
+// Google 로그인 시뮬레이션
+function handleGoogleLogin() {
+  const btn = document.getElementById('googleLoginBtn');
+  const txt = document.getElementById('googleLoginText');
+  txt.textContent = '로그인 중...';
+  btn.disabled = true;
+  btn.style.opacity = '0.7';
+
+  setTimeout(() => {
+    isLoggedIn = true;
+    hideLoginModal();
+    // 로그인 후 UI 전환
+    document.getElementById('profileLoggedOut').classList.add('hidden');
+    document.getElementById('profileLoggedIn').classList.remove('hidden');
+    document.getElementById('logoutSection').classList.remove('hidden');
+    document.getElementById('loginSection').classList.add('hidden');
+
+    // 버튼 복구
+    txt.textContent = 'Google로 로그인';
+    btn.disabled = false;
+    btn.style.opacity = '1';
+
+    showToastMessage('🎉 로그인 성공! 기록이 동기화되었어요.');
+  }, 1500);
+}
+
+function handleLogout() {
+  if (!confirm('정말 로그아웃 하시겠어요?')) return;
+  isLoggedIn = false;
+  document.getElementById('profileLoggedOut').classList.remove('hidden');
+  document.getElementById('profileLoggedIn').classList.add('hidden');
+  document.getElementById('logoutSection').classList.add('hidden');
+  document.getElementById('loginSection').classList.remove('hidden');
+  showToastMessage('로그아웃 되었어요.');
+}
+
+function editProfileName() {
+  const name = prompt('닉네임을 입력해주세요', document.getElementById('profileName').textContent);
+  if (name && name.trim()) {
+    document.getElementById('profileName').textContent = name.trim();
+    document.getElementById('profileAvatar').textContent = name.trim().charAt(0).toUpperCase();
+  }
+}
+
+function showLoginModal() {
+  const m = document.getElementById('loginModal');
+  m.style.display = 'flex';
+  requestAnimationFrame(() => m.classList.add('open'));
+}
+
+function hideLoginModal() {
+  const m = document.getElementById('loginModal');
+  m.classList.remove('open');
+  setTimeout(() => { m.style.display = 'none'; }, 250);
+}
+
+function showVoiceModal() {
+  const m = document.getElementById('voiceModal');
+  m.style.display = 'flex';
+  m.classList.remove('hidden');
+}
+
+function selectVoice(voice) {
+  curVoice = voice;
+  document.getElementById('voiceLabel').textContent = voice;
+  document.querySelectorAll('.voice-opt').forEach(btn => {
+    const isSelected = btn.textContent.includes(voice);
+    btn.style.borderColor = isSelected ? '#abd600' : 'rgba(68,73,51,0.4)';
+    const icon = btn.querySelector('.material-symbols-outlined');
+    icon.textContent = isSelected ? 'check_circle' : 'radio_button_unchecked';
+    icon.className = isSelected ? 'material-symbols-outlined text-primary' : 'material-symbols-outlined text-on-surface-variant';
+  });
+  setTimeout(() => {
+    document.getElementById('voiceModal').classList.add('hidden');
+    document.getElementById('voiceModal').style.display = 'none';
+  }, 400);
+}
+
+function showWatchModal() {
+  const m = document.getElementById('watchModal');
+  m.style.display = 'flex';
+  m.classList.remove('hidden');
+}
+
+function closeWatchModal() {
+  document.getElementById('watchModal').classList.add('hidden');
+  document.getElementById('watchModal').style.display = 'none';
+}
+
+function connectWatch(type) {
+  const names = { apple:'Apple Watch', galaxy:'Galaxy Watch', garmin:'Garmin' };
+  closeWatchModal();
+  setTimeout(() => showToastMessage(`⌚ ${names[type]} 연결 요청 중...\n실 기기에서 워치 앱을 확인해주세요.`), 300);
+}
+
+function toggleUnit() {
+  curUnit = curUnit === 'km' ? 'mi' : 'km';
+  document.getElementById('unitLabel').textContent = curUnit === 'km' ? '킬로미터 (km)' : '마일 (mi)';
+}
+
+function openLink(type) {
+  showToastMessage(type === 'privacy' ? '📄 개인정보 처리방침 페이지로 이동합니다.' : '📄 이용약관 페이지로 이동합니다.');
+}
+
+function showFeedback() {
+  document.getElementById('feedbackToast').classList.remove('hidden');
+}
+
+function showToastMessage(msg) {
+  const el = document.getElementById('miniToast') || (() => {
+    const d = document.createElement('div');
+    d.id = 'miniToast';
+    d.className = 'fixed top-16 left-4 right-4 z-50 rounded-xl px-4 py-3 text-sm font-semibold text-on-surface transition-all';
+    d.style.background = '#282a2e';
+    d.style.border = '1px solid rgba(171,214,0,0.3)';
+    d.style.opacity = '0';
+    document.body.appendChild(d);
+    return d;
+  })();
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; }, 2500);
 }
 
 // Init
