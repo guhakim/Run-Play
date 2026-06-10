@@ -252,10 +252,30 @@ tailwind.config = {
     <p class="text-white text-sm font-semibold">⏸ 자동 일시정지 · 움직이면 재시작</p>
   </div>
   <div class="flex-1 flex flex-col justify-center px-5 pt-8">
-    <div class="text-center mb-8">
+    <div class="text-center mb-3">
       <p class="font-display font-black text-on-surface mb-1" id="distRun" style="font-size:80px;line-height:1;">0.00km</p>
       <p class="text-on-surface-variant text-sm font-mono">달린 거리</p>
     </div>
+
+    <!-- 모션 상태 표시 -->
+    <div id="motionStatus" class="hidden flex items-center justify-center gap-2 mb-4">
+      <div id="motionDot" class="w-2.5 h-2.5 rounded-full" style="background:#8e9379;transition:background 0.3s"></div>
+      <span id="motionLabel" class="text-sm font-semibold text-on-surface-variant">감지 중...</span>
+    </div>
+
+    <!-- 데스크탑/PC 모드: 누르고 있으면 달리기 -->
+    <div id="desktopRunBtn" class="hidden mb-4">
+      <p class="text-center text-xs text-on-surface-variant mb-2">📱 모바일에서 실제 가속도계 연동 · 지금은 데스크탑 모드</p>
+      <button
+        id="holdRunBtn"
+        onpointerdown="startManualRun(event)"
+        onpointerup="stopManualRun()"
+        onpointerleave="stopManualRun()"
+        class="w-full py-5 rounded-2xl font-display font-black text-xl text-on-primary select-none"
+        style="background:#abd600;touch-action:none;transition:opacity 0.1s"
+      >👟 누르고 있으면 달리기</button>
+    </div>
+
     <div class="grid grid-cols-2 gap-3 mb-6">
       <div class="glass rounded-2xl p-4 text-center">
         <p class="font-display font-black text-2xl text-on-surface" id="timerRun">0:00</p>
@@ -1150,6 +1170,111 @@ function startCountdown() {
   tick();
 }
 
+// ─── TTS (Web Speech API, 한국어) ────────────────────────────────────────────
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  const clean = text.replace(/[\u{1F300}-\u{1FAFF}⏸✅]/gu, '').trim();
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(clean);
+  utt.lang = 'ko-KR';
+  utt.rate = 1.05;
+  utt.pitch = 1.0;
+  window.speechSynthesis.speak(utt);
+}
+
+// ─── Motion detection (가속도계 기반 자동 일시정지) ──────────────────────────
+let motionEnabled = false;
+let isMoving = false;
+let isManualRunning = false;
+let autoPausedByMotion = false;
+let motionlessFrames = 0;
+let accBuf = [];
+
+const MOTION_THRESH = 1.2;   // 이 이상이면 움직임으로 판단 (m/s²)
+const AUTO_PAUSE_FRAMES = 10; // 10 × 300ms = 3초 정지 시 자동 일시정지
+
+function initMotion() {
+  accBuf = []; isMoving = false; isManualRunning = false;
+  autoPausedByMotion = false; motionlessFrames = 0;
+
+  if (typeof DeviceMotionEvent !== 'undefined') {
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+      // iOS 13+ 권한 요청
+      DeviceMotionEvent.requestPermission()
+        .then(p => { p === 'granted' ? enableMotionSensor() : enableDesktopMode(); })
+        .catch(() => enableDesktopMode());
+    } else {
+      enableMotionSensor(); // Android / 구형 iOS
+    }
+  } else {
+    enableDesktopMode(); // PC 브라우저
+  }
+}
+
+function enableMotionSensor() {
+  motionEnabled = true;
+  window.addEventListener('devicemotion', onDeviceMotion, { passive: true });
+  document.getElementById('motionStatus').classList.remove('hidden');
+  setMotionUI(false);
+}
+
+function enableDesktopMode() {
+  motionEnabled = false;
+  document.getElementById('desktopRunBtn').classList.remove('hidden');
+  document.getElementById('motionStatus').classList.remove('hidden');
+  setMotionUI(false);
+}
+
+function stopMotionSensor() {
+  window.removeEventListener('devicemotion', onDeviceMotion);
+  motionEnabled = false;
+}
+
+function onDeviceMotion(e) {
+  const a = e.accelerationIncludingGravity;
+  if (!a) return;
+  const mag = Math.sqrt((a.x||0)**2 + (a.y||0)**2 + (a.z||0)**2);
+  const dyn = Math.abs(mag - 9.81); // 중력 제거 → 동적 가속도
+  accBuf.push(dyn);
+  if (accBuf.length > 15) accBuf.shift();
+  const avg = accBuf.reduce((s,v) => s + v, 0) / accBuf.length;
+
+  const wasMoving = isMoving;
+  isMoving = avg > MOTION_THRESH;
+
+  // 움직임 재개 → 자동 재시작
+  if (isMoving && !wasMoving && autoPausedByMotion) {
+    autoPausedByMotion = false; isPaused = false; motionlessFrames = 0;
+    document.getElementById('pauseBanner').classList.add('hidden');
+    speak('다시 달리기 시작! 파이팅!');
+  }
+  if (isMoving !== wasMoving) setMotionUI(isMoving);
+}
+
+function setMotionUI(moving) {
+  const dot = document.getElementById('motionDot');
+  const lbl = document.getElementById('motionLabel');
+  if (!dot || !lbl) return;
+  dot.style.background   = moving ? '#abd600' : '#8e9379';
+  lbl.textContent        = moving ? '🏃 달리는 중' : '⏸ 정지 감지됨';
+  lbl.style.color        = moving ? '#abd600' : '#8e9379';
+}
+
+function startManualRun(e) {
+  if (e) e.preventDefault();
+  isManualRunning = true; setMotionUI(true);
+  if (autoPausedByMotion) {
+    autoPausedByMotion = false; isPaused = false; motionlessFrames = 0;
+    document.getElementById('pauseBanner').classList.add('hidden');
+  }
+  document.getElementById('holdRunBtn').style.opacity = '0.7';
+}
+
+function stopManualRun() {
+  isManualRunning = false; setMotionUI(false);
+  document.getElementById('holdRunBtn').style.opacity = '1';
+}
+
 // ─── Active run ───────────────────────────────────────────────────────────────
 let elapsed = 0, distCovered = 0, isPaused = false;
 let runTimer = null, simHR = 120;
@@ -1158,20 +1283,45 @@ let coachingMessages = [], firedTriggers = {};
 function startRun() {
   elapsed = 0; distCovered = 0; isPaused = false;
   simHR = 115; coachingMessages = []; firedTriggers = {};
+  motionlessFrames = 0; autoPausedByMotion = false;
+  document.getElementById('desktopRunBtn').classList.add('hidden');
+  document.getElementById('motionStatus').classList.add('hidden');
+
   goTo('countdownScreen','activeScreen');
   document.getElementById('pauseBanner').classList.add('hidden');
+  initMotion();
+
   setTimeout(() => fireCoaching('START_RUN', `반가워요! 오늘 목표는 ${targetDist}km, 목표 페이스는 ${fmtPace(targetPaceSec)}네요. 가볍게 출발해 볼게요! 렛츠 런플! 🔥`), 800);
 
   runTimer = setInterval(() => {
     if (isPaused) return;
+
+    // ── 모션 체크 ──
+    const moving = motionEnabled ? isMoving : isManualRunning;
+    if (!moving) {
+      motionlessFrames++;
+      if (motionlessFrames >= AUTO_PAUSE_FRAMES && !autoPausedByMotion) {
+        autoPausedByMotion = true; isPaused = true; motionlessFrames = 0;
+        document.getElementById('pauseBanner').classList.remove('hidden');
+        speak('잠깐 멈췄네요. 자동으로 일시정지 할게요. 다시 달리기 시작하면 재개돼요.');
+        setMotionUI(false);
+      }
+      return;
+    }
+    motionlessFrames = 0;
+
+    // ── 거리·시간 업데이트 (목표 페이스 기준, 작은 변동 추가) ──
     elapsed++;
-    const speed = 2.5 + Math.random() * 0.8;
-    distCovered = Math.min(distCovered + speed/1000, targetDist * 1.02);
-    simHR += (Math.random() - 0.45) * 4;
+    const paceVariance = (Math.random() - 0.5) * 15; // ±7.5초 변동
+    const effectivePace = targetPaceSec + paceVariance;
+    const distPerStep = (1 / effectivePace) * 0.3; // 300ms 간격
+    distCovered = Math.min(distCovered + distPerStep, targetDist * 1.02);
+
+    simHR += (Math.random() - 0.45) * 3;
     simHR = Math.max(115, Math.min(185, simHR));
     const hrInt = Math.round(simHR);
-    const curPace = targetPaceSec + Math.round((Math.random()-0.5)*20);
-    const avgPace = elapsed > 0 ? Math.round((elapsed/60) / (distCovered||0.001) * 60) : targetPaceSec;
+    const curPace = Math.round(effectivePace);
+    const avgPace = elapsed > 0 ? Math.round((elapsed / 60) / (distCovered || 0.001) * 60) : targetPaceSec;
 
     document.getElementById('distRun').textContent = fmtDist(distCovered);
     document.getElementById('timerRun').textContent = fmtDuration(elapsed);
@@ -1180,12 +1330,13 @@ function startRun() {
     const hrEl = document.getElementById('hrRun');
     hrEl.textContent = hrInt + ' bpm';
     hrEl.className = hrInt >= 175 ? 'font-display font-black text-2xl hr-danger' : 'font-display font-black text-2xl text-on-surface';
-    document.getElementById('progressFill').style.width = Math.min((distCovered/targetDist)*100,100)+'%';
-    document.getElementById('livePoints').textContent = '+' + Math.floor(distCovered*100) + 'P';
+    document.getElementById('progressFill').style.width = Math.min((distCovered / targetDist) * 100, 100) + '%';
+    document.getElementById('livePoints').textContent = '+' + Math.floor(distCovered * 100) + 'P';
     checkTriggers(distCovered, curPace, hrInt);
 
     if (distCovered >= targetDist) {
       clearInterval(runTimer);
+      stopMotionSensor();
       setTimeout(() => {
         fireCoaching('FINISH_RUN', `정말 멋져요! ${targetDist}km 완주 성공! 오늘 목표를 완벽하게 정복하셨습니다. 최고예요! 🎉`);
         setTimeout(endRun, 2500);
@@ -1225,17 +1376,27 @@ function fireCoaching(trigger, text) {
   toast.classList.remove('hidden');
   toast.classList.add('toast-in');
   setTimeout(() => toast.classList.add('hidden'), 5000);
+  speak(text); // 🔊 한국어 음성 출력
 }
 
 function togglePause() {
+  autoPausedByMotion = false; // 수동 조작 시 모션 일시정지 해제
   isPaused = !isPaused;
   document.getElementById('pauseIcon').textContent = isPaused ? 'play_arrow' : 'pause';
   document.getElementById('pauseBanner').classList.toggle('hidden', !isPaused);
-  if (isPaused) fireCoaching('AUTO_PAUSE', '잠시 기록을 멈출게요. 호흡을 고르고 다시 달려봐요!');
+  if (isPaused) {
+    speak('잠시 기록을 멈출게요. 호흡을 고르고 다시 달려봐요!');
+    fireCoaching('AUTO_PAUSE', '잠시 기록을 멈출게요. 호흡을 고르고 다시 달려봐요!');
+  } else {
+    speak('다시 달리기 시작합니다! 파이팅!');
+  }
 }
 
 function endRun() {
   clearInterval(runTimer);
+  stopMotionSensor();
+  document.getElementById('desktopRunBtn').classList.add('hidden');
+  document.getElementById('motionStatus').classList.add('hidden');
   document.getElementById('finDist').textContent = fmtDist(distCovered);
   document.getElementById('finTime').textContent = fmtDuration(elapsed);
   const avgP = elapsed > 0 && distCovered > 0 ? Math.round((elapsed/60)/distCovered*60) : targetPaceSec;
