@@ -2,6 +2,25 @@
 
 > MZ세대를 위한 AI 러닝 코치 앱 — 달리는 동안 Claude가 실시간으로 코칭해줘요
 
+## 🔗 인터랙티브 프로토타입 (외부 공유 링크)
+
+> 앱 설치 없이 브라우저에서 바로 체험할 수 있어요!
+
+**👉 [https://raw.githack.com/guhakim/Run-Play/main/prototype.html](https://raw.githack.com/guhakim/Run-Play/main/prototype.html)**
+
+| 화면 | 내용 |
+|------|------|
+| 🏠 홈 | 통계 카드, AI 코칭 메시지, 마지막 러닝 요약 |
+| 🎯 목표 설정 | 거리 선택 + 페이스 슬라이더 |
+| ⏱ 카운트다운 | 3·2·1·달려! |
+| 🏃 러닝 중 | 실시간 거리/페이스/심박수 시뮬레이션, AI 코칭 토스트 |
+| 🎉 완주 | 완주 메시지 |
+| 📊 갓생 리포트 | 포인트 계산, 코칭 기록, 인스타 공유 |
+| 📋 기록 | 필터(이번주/이번달/전체), 러닝 카드, 상세 오버레이 |
+| 👤 프로필 | 통계, 등급, 배지, 설정, Google 로그인 시뮬레이션 |
+
+---
+
 [![Expo](https://img.shields.io/badge/Expo-SDK%2056-000020?logo=expo)](https://expo.dev)
 [![React Native](https://img.shields.io/badge/React%20Native-0.76-61DAFB?logo=react)](https://reactnative.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript)](https://www.typescriptlang.org)
