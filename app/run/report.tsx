@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors, spacing, fontSizes, borderRadius } from '../../src/constants/theme';
@@ -9,6 +9,7 @@ import { useUserStore } from '../../src/stores/useUserStore';
 import { formatDistance, formatDuration, formatPace } from '../../src/utils/formatters';
 import { calculatePoints } from '../../src/constants/points';
 import { ShareCardService } from '../../src/services/share/ShareCardService';
+import { useHistoryStore, buildHistoryRun } from '../../src/stores/useHistoryStore';
 
 export default function ReportScreen() {
   const router = useRouter();
@@ -18,6 +19,9 @@ export default function ReportScreen() {
   const { targetDistanceKm, targetPaceSecPerKm } = useGoalStore();
   const { messages } = useCoachingStore();
   const { name, streakDays, addPoints } = useUserStore();
+
+  const { addRun } = useHistoryStore();
+  const savedRef = useRef(false);
 
   const avgHeartRate = heartRateHistory.length
     ? Math.round(heartRateHistory.reduce((a, b) => a + b, 0) / heartRateHistory.length)
@@ -31,6 +35,24 @@ export default function ReportScreen() {
     maxHeartRate,
     streakDays,
   });
+
+  // Save run to history once on mount
+  useEffect(() => {
+    if (savedRef.current || totalDistanceKm <= 0) return;
+    savedRef.current = true;
+    addRun(buildHistoryRun({
+      distanceKm: totalDistanceKm,
+      durationSeconds: elapsedSeconds,
+      avgPaceSecPerKm,
+      maxHeartRate,
+      avgHeartRate,
+      heartRateHistory,
+      targetDistanceKm,
+      targetPaceSecPerKm,
+      pointsEarned: points,
+      coachingMessages: messages.map(m => m.text),
+    }));
+  }, []);
 
   async function handleShare() {
     try {
