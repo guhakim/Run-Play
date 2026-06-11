@@ -1180,87 +1180,119 @@ function speak(text) {
   window.speechSynthesis.speak(utt);
 }
 
-// ─── Motion detection (가속도계 기반 달리기 감지) ─────────────────────────────
-let motionEnabled = false;
-let isMoving = false;
+// ─── GPS 기반 거리 측정 (나이키 런클럽 방식) ──────────────────────────────────
+let gpsWatchId    = null;
+let lastGPSCoords = null;   // { lat, lon, ts }
+let gpsSpeed      = 0;      // m/s (GPS 제공 또는 좌표 차이로 계산)
+let curGPSPace    = 0;      // sec/km
+let isMoving      = false;
 let autoPausedByMotion = false;
-let motionlessFrames = 0;
-let accBuf = [];
+let motionlessFrames   = 0;
 
-// 달리기 감지 임계값: e.acceleration(중력 제거) 기준 0.8 m/s²
-// 걷기 ~0.5, 달리기 ~1.5~4, 정지 ~0  — 넉넉하게 0.8로 설정
-const MOTION_THRESH    = 0.8;
-const ACC_BUF_SIZE     = 8;    // 8샘플(약 130ms) — 빠른 반응
-const AUTO_PAUSE_FRAMES = 13;  // 13 × 300ms ≈ 4초 정지 시 자동 일시정지
+const SPEED_THRESH      = 0.8;  // 0.8 m/s(약 3km/h) 미만 = 정지
+const AUTO_PAUSE_FRAMES = 13;   // 13 × 300ms = 약 4초 정지 → 자동 일시정지
 
-function initMotion() {
-  accBuf = []; isMoving = false;
-  autoPausedByMotion = false; motionlessFrames = 0;
+// Haversine: 두 GPS 좌표 사이 거리(미터)
+function haversineM(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
 
-  if (typeof DeviceMotionEvent !== 'undefined') {
-    if (typeof DeviceMotionEvent.requestPermission === 'function') {
-      // iOS 13+ — 버튼 탭 직후 호출이므로 권한 요청 가능
-      DeviceMotionEvent.requestPermission()
-        .then(p => { p === 'granted' ? enableMotionSensor() : enableNoSensorMode(); })
-        .catch(() => enableNoSensorMode());
-    } else {
-      enableMotionSensor(); // Android / 구형 iOS
+function initGPS() {
+  lastGPSCoords = null; gpsSpeed = 0; curGPSPace = 0;
+  isMoving = false; autoPausedByMotion = false; motionlessFrames = 0;
+  setGPSStatus('📡 GPS 연결 중...');
+
+  if (!navigator.geolocation) {
+    setGPSStatus('❌ GPS 미지원 기기');
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    () => {
+      gpsWatchId = navigator.geolocation.watchPosition(onGPSUpdate, onGPSError, {
+        enableHighAccuracy: true,
+        maximumAge: 1000,
+        timeout: 15000,
+      });
+    },
+    onGPSError,
+    { enableHighAccuracy: true, timeout: 15000 }
+  );
+}
+
+function onGPSUpdate(pos) {
+  const { latitude: lat, longitude: lon, speed, accuracy } = pos.coords;
+  const ts = pos.timestamp;
+
+  // 정확도 30m 초과면 노이즈로 무시
+  if (accuracy > 30) return;
+
+  // ── 거리 계산 ──
+  if (lastGPSCoords && !isPaused) {
+    const distM = haversineM(lastGPSCoords.lat, lastGPSCoords.lon, lat, lon);
+    const dtSec = (ts - lastGPSCoords.ts) / 1000;
+
+    // 0.5m 이상 200m 미만만 유효 (노이즈·순간이동 제거)
+    if (distM > 0.5 && distM < 200) {
+      distCovered = Math.min(distCovered + distM / 1000, targetDist * 1.02);
+
+      // coords.speed 없는 기기 대응: 위치 차이로 속도 계산
+      if (speed !== null && speed >= 0) {
+        gpsSpeed = speed;
+      } else if (dtSec > 0) {
+        gpsSpeed = distM / dtSec;
+      }
     }
-  } else {
-    enableNoSensorMode(); // PC 브라우저
   }
-}
+  lastGPSCoords = { lat, lon, ts };
 
-function enableMotionSensor() {
-  motionEnabled = true;
-  window.addEventListener('devicemotion', onDeviceMotion, { passive: true });
-  document.getElementById('motionStatus').classList.remove('hidden');
-  setMotionUI(false);
-}
+  // coords.speed 있는 기기는 그걸 사용
+  if (speed !== null && speed >= 0) gpsSpeed = speed;
 
-// 센서 없는 환경(PC / iOS 권한 거부): 거리 측정 불가 안내
-function enableNoSensorMode() {
-  motionEnabled = false;
-  isMoving = false; // 움직임 감지 불가 → 거리 측정 중단
-  document.getElementById('motionStatus').classList.remove('hidden');
-  const dot = document.getElementById('motionDot');
-  const lbl = document.getElementById('motionLabel');
-  if (dot) dot.style.background = '#8e9379';
-  if (lbl) { lbl.textContent = '📡 가속도계 필요 — 스마트폰으로 실행해주세요'; lbl.style.color = '#8e9379'; }
-}
-
-function stopMotionSensor() {
-  window.removeEventListener('devicemotion', onDeviceMotion);
-  motionEnabled = false;
-}
-
-function onDeviceMotion(e) {
-  // e.acceleration: 중력이 이미 제거된 순수 운동 가속도 (가장 정확)
-  // 없으면 accelerationIncludingGravity 에서 벡터 크기 - 9.81 로 근사
-  let dyn = 0;
-  if (e.acceleration && e.acceleration.x !== null) {
-    const a = e.acceleration;
-    dyn = Math.sqrt((a.x||0)**2 + (a.y||0)**2 + (a.z||0)**2);
-  } else if (e.accelerationIncludingGravity) {
-    const a = e.accelerationIncludingGravity;
-    const mag = Math.sqrt((a.x||0)**2 + (a.y||0)**2 + (a.z||0)**2);
-    dyn = Math.abs(mag - 9.81);
-  }
-
-  accBuf.push(dyn);
-  if (accBuf.length > ACC_BUF_SIZE) accBuf.shift();
-  const avg = accBuf.reduce((s, v) => s + v, 0) / accBuf.length;
-
+  // ── 달리는 중 여부 ──
   const wasMoving = isMoving;
-  isMoving = avg > MOTION_THRESH;
+  isMoving = gpsSpeed >= SPEED_THRESH;
 
-  // 움직임 재개 → 자동 재시작
-  if (isMoving && !wasMoving && autoPausedByMotion) {
+  // GPS 속도 회복 → 자동 재개
+  if (isMoving && autoPausedByMotion) {
     autoPausedByMotion = false; isPaused = false; motionlessFrames = 0;
     document.getElementById('pauseBanner').classList.add('hidden');
     speak('움직임 감지됐어요, 다시 달려봐요!');
   }
   if (isMoving !== wasMoving) setMotionUI(isMoving);
+
+  // ── 화면 업데이트 ──
+  curGPSPace = gpsSpeed > 0.3 ? Math.round(1000 / gpsSpeed) : 0;
+  document.getElementById('distRun').textContent = fmtDist(distCovered);
+  if (curGPSPace > 0)
+    document.getElementById('curPaceRun').textContent = fmtPace(curGPSPace);
+  document.getElementById('progressFill').style.width =
+    Math.min((distCovered / targetDist) * 100, 100) + '%';
+  document.getElementById('livePoints').textContent =
+    '+' + Math.floor(distCovered * 100) + 'P';
+}
+
+function onGPSError() {
+  setGPSStatus('📡 GPS 권한을 허용해주세요');
+}
+
+function stopGPS() {
+  if (gpsWatchId !== null) {
+    navigator.geolocation.clearWatch(gpsWatchId);
+    gpsWatchId = null;
+  }
+}
+
+function setGPSStatus(msg) {
+  document.getElementById('motionStatus').classList.remove('hidden');
+  const dot = document.getElementById('motionDot');
+  const lbl = document.getElementById('motionLabel');
+  if (dot) dot.style.background = '#8e9379';
+  if (lbl) { lbl.textContent = msg; lbl.style.color = '#8e9379'; }
 }
 
 function setMotionUI(moving) {
@@ -1280,21 +1312,19 @@ let coachingMessages = [], firedTriggers = {};
 function startRun() {
   elapsed = 0; distCovered = 0; isPaused = false;
   simHR = 115; coachingMessages = []; firedTriggers = {};
-  motionlessFrames = 0; autoPausedByMotion = false;
   document.getElementById('motionStatus').classList.add('hidden');
 
   goTo('countdownScreen','activeScreen');
   document.getElementById('pauseBanner').classList.add('hidden');
-  initMotion();
+  initGPS(); // GPS 시작
 
   setTimeout(() => fireCoaching('START_RUN', `좋아요, 출발해봐요! 오늘 ${targetDist}킬로, 페이스는 ${fmtPace(targetPaceSec)} 목표로 가는 거예요. 너무 빠르지 않게, 처음엔 편하게 시작해요.`), 800);
 
   runTimer = setInterval(() => {
     if (isPaused) return;
 
-    // ── 모션 체크 (센서 없으면 isMoving=true 로 고정됨) ──
-    const moving = isMoving;
-    if (!moving) {
+    // ── 정지 감지 (GPS isMoving 기준) ──
+    if (!isMoving) {
       motionlessFrames++;
       if (motionlessFrames >= AUTO_PAUSE_FRAMES && !autoPausedByMotion) {
         autoPausedByMotion = true; isPaused = true; motionlessFrames = 0;
@@ -1306,33 +1336,28 @@ function startRun() {
     }
     motionlessFrames = 0;
 
-    // ── 거리·시간 업데이트 (목표 페이스 기준, 작은 변동 추가) ──
+    // ── 시간 · 심박 업데이트 (거리는 GPS 콜백에서 처리) ──
     elapsed++;
-    const paceVariance = (Math.random() - 0.5) * 15; // ±7.5초 변동
-    const effectivePace = targetPaceSec + paceVariance;
-    const distPerStep = (1 / effectivePace) * 0.3; // 300ms 간격
-    distCovered = Math.min(distCovered + distPerStep, targetDist * 1.02);
-
     simHR += (Math.random() - 0.45) * 3;
     simHR = Math.max(115, Math.min(185, simHR));
     const hrInt = Math.round(simHR);
-    const curPace = Math.round(effectivePace);
-    const avgPace = elapsed > 0 ? Math.round((elapsed / 60) / (distCovered || 0.001) * 60) : targetPaceSec;
+    const avgPace = elapsed > 0 && distCovered > 0
+      ? Math.round((elapsed / 60) / distCovered * 60)
+      : targetPaceSec;
 
-    document.getElementById('distRun').textContent = fmtDist(distCovered);
     document.getElementById('timerRun').textContent = fmtDuration(elapsed);
-    document.getElementById('curPaceRun').textContent = fmtPace(curPace);
     document.getElementById('avgPaceRun').textContent = fmtPace(avgPace);
     const hrEl = document.getElementById('hrRun');
     hrEl.textContent = hrInt + ' bpm';
-    hrEl.className = hrInt >= 175 ? 'font-display font-black text-2xl hr-danger' : 'font-display font-black text-2xl text-on-surface';
-    document.getElementById('progressFill').style.width = Math.min((distCovered / targetDist) * 100, 100) + '%';
-    document.getElementById('livePoints').textContent = '+' + Math.floor(distCovered * 100) + 'P';
-    checkTriggers(distCovered, curPace, hrInt);
+    hrEl.className = hrInt >= 175
+      ? 'font-display font-black text-2xl hr-danger'
+      : 'font-display font-black text-2xl text-on-surface';
+
+    checkTriggers(distCovered, curGPSPace || avgPace, hrInt);
 
     if (distCovered >= targetDist) {
       clearInterval(runTimer);
-      stopMotionSensor();
+      stopGPS();
       setTimeout(() => {
         fireCoaching('FINISH_RUN', `다 왔어요! ${targetDist}킬로 완주했어요! 진짜 잘 달렸어요, 오늘 고생 많았고 자랑스러워요!`);
         setTimeout(endRun, 2500);
@@ -1390,7 +1415,7 @@ function togglePause() {
 
 function endRun() {
   clearInterval(runTimer);
-  stopMotionSensor();
+  stopGPS();
   document.getElementById('motionStatus').classList.add('hidden');
   document.getElementById('finDist').textContent = fmtDist(distCovered);
   document.getElementById('finTime').textContent = fmtDuration(elapsed);
