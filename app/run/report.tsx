@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import MapView, { Polyline, Marker, Region } from 'react-native-maps';
 import { useRouter } from 'expo-router';
 import { colors, spacing, fontSizes, borderRadius } from '../../src/constants/theme';
 import { useRunStore } from '../../src/stores/useRunStore';
@@ -10,12 +11,31 @@ import { formatDistance, formatDuration, formatPace } from '../../src/utils/form
 import { calculatePoints } from '../../src/constants/points';
 import { ShareCardService } from '../../src/services/share/ShareCardService';
 import { useHistoryStore, buildHistoryRun } from '../../src/stores/useHistoryStore';
+import type { GPSPoint } from '../../src/types/run';
+
+function routeToRegion(route: GPSPoint[]): Region | null {
+  if (route.length < 2) return null;
+  const lats = route.map(p => p.latitude);
+  const lons = route.map(p => p.longitude);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLon = Math.min(...lons);
+  const maxLon = Math.max(...lons);
+  const latDelta = Math.max((maxLat - minLat) * 1.5, 0.004);
+  const lonDelta = Math.max((maxLon - minLon) * 1.5, 0.004);
+  return {
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLon + maxLon) / 2,
+    latitudeDelta: latDelta,
+    longitudeDelta: lonDelta,
+  };
+}
 
 export default function ReportScreen() {
   const router = useRouter();
   const shareCardRef = useRef(null);
 
-  const { totalDistanceKm, elapsedSeconds, avgPaceSecPerKm, maxHeartRate, heartRateHistory } = useRunStore();
+  const { totalDistanceKm, elapsedSeconds, avgPaceSecPerKm, maxHeartRate, heartRateHistory, route } = useRunStore();
   const { targetDistanceKm, targetPaceSecPerKm } = useGoalStore();
   const { messages } = useCoachingStore();
   const { name, streakDays, addPoints } = useUserStore();
@@ -62,9 +82,56 @@ export default function ReportScreen() {
     }
   }
 
+  const region = routeToRegion(route);
+  const coords = route.map(p => ({ latitude: p.latitude, longitude: p.longitude }));
+  const startPoint = coords[0] ?? null;
+  const endPoint = coords[coords.length - 1] ?? null;
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>갓생 리포트 📊</Text>
+
+      {/* Route Map */}
+      {region && coords.length >= 2 ? (
+        <View style={styles.mapCard}>
+          <MapView
+            style={styles.map}
+            initialRegion={region}
+            scrollEnabled={false}
+            zoomEnabled={false}
+            rotateEnabled={false}
+            pitchEnabled={false}
+          >
+            {/* 경로 선 */}
+            <Polyline
+              coordinates={coords}
+              strokeColor={colors.primary}
+              strokeWidth={4}
+              lineCap="round"
+              lineJoin="round"
+            />
+            {/* 출발 마커 */}
+            {startPoint && (
+              <Marker coordinate={startPoint} anchor={{ x: 0.5, y: 0.5 }}>
+                <View style={styles.markerStart}>
+                  <Text style={styles.markerText}>출발</Text>
+                </View>
+              </Marker>
+            )}
+            {/* 도착 마커 */}
+            {endPoint && (
+              <Marker coordinate={endPoint} anchor={{ x: 0.5, y: 0.5 }}>
+                <View style={styles.markerEnd}>
+                  <Text style={styles.markerText}>완주</Text>
+                </View>
+              </Marker>
+            )}
+          </MapView>
+          <View style={styles.mapBadge}>
+            <Text style={styles.mapBadgeText}>{formatDistance(totalDistanceKm)} 완주</Text>
+          </View>
+        </View>
+      ) : null}
 
       {/* Stats */}
       <View style={styles.card}>
@@ -141,6 +208,40 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, paddingTop: 64, paddingBottom: 40 },
   title: { fontSize: fontSizes.xxl, fontWeight: '800', color: colors.text, marginBottom: spacing.lg },
+
+  // Map
+  mapCard: {
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    marginBottom: spacing.md,
+    height: 240,
+    position: 'relative',
+  },
+  map: { width: '100%', height: '100%' },
+  markerStart: {
+    backgroundColor: '#22C55E',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  markerEnd: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  markerText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  mapBadge: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  mapBadgeText: { color: '#fff', fontSize: fontSizes.sm, fontWeight: '700' },
+
   card: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
