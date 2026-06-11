@@ -1218,14 +1218,15 @@ function enableMotionSensor() {
   setMotionUI(false);
 }
 
-// 센서 없는 환경(PC 등): 거리 자동 진행 + 안내 표시
+// 센서 없는 환경(PC / iOS 권한 거부): 거리 측정 불가 안내
 function enableNoSensorMode() {
   motionEnabled = false;
-  isMoving = true; // 센서 없으면 항상 달리는 상태로 간주
+  isMoving = false; // 움직임 감지 불가 → 거리 측정 중단
   document.getElementById('motionStatus').classList.remove('hidden');
-  setMotionUI(true);
+  const dot = document.getElementById('motionDot');
   const lbl = document.getElementById('motionLabel');
-  if (lbl) lbl.textContent = '📡 센서 없음 — 자동 진행';
+  if (dot) dot.style.background = '#8e9379';
+  if (lbl) { lbl.textContent = '📡 가속도계 필요 — 스마트폰으로 실행해주세요'; lbl.style.color = '#8e9379'; }
 }
 
 function stopMotionSensor() {
