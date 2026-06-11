@@ -1,6 +1,5 @@
 import { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
-import MapView, { Polyline, Marker, Region } from 'react-native-maps';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors, spacing, fontSizes, borderRadius } from '../../src/constants/theme';
 import { useRunStore } from '../../src/stores/useRunStore';
@@ -12,6 +11,19 @@ import { calculatePoints } from '../../src/constants/points';
 import { ShareCardService } from '../../src/services/share/ShareCardService';
 import { useHistoryStore, buildHistoryRun } from '../../src/stores/useHistoryStore';
 import type { GPSPoint } from '../../src/types/run';
+
+// react-native-maps는 iOS/Android 전용 — 웹에서는 lazy import
+let MapView: any = null;
+let Polyline: any = null;
+let Marker: any = null;
+if (Platform.OS !== 'web') {
+  const maps = require('react-native-maps');
+  MapView = maps.default;
+  Polyline = maps.Polyline;
+  Marker = maps.Marker;
+}
+
+type Region = { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number };
 
 function routeToRegion(route: GPSPoint[]): Region | null {
   if (route.length < 2) return null;
@@ -91,8 +103,8 @@ export default function ReportScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>갓생 리포트 📊</Text>
 
-      {/* Route Map */}
-      {region && coords.length >= 2 ? (
+      {/* Route Map — iOS/Android 전용 */}
+      {Platform.OS !== 'web' && region && coords.length >= 2 && MapView ? (
         <View style={styles.mapCard}>
           <MapView
             style={styles.map}
@@ -102,7 +114,6 @@ export default function ReportScreen() {
             rotateEnabled={false}
             pitchEnabled={false}
           >
-            {/* 경로 선 */}
             <Polyline
               coordinates={coords}
               strokeColor={colors.primary}
@@ -110,7 +121,6 @@ export default function ReportScreen() {
               lineCap="round"
               lineJoin="round"
             />
-            {/* 출발 마커 */}
             {startPoint && (
               <Marker coordinate={startPoint} anchor={{ x: 0.5, y: 0.5 }}>
                 <View style={styles.markerStart}>
@@ -118,7 +128,6 @@ export default function ReportScreen() {
                 </View>
               </Marker>
             )}
-            {/* 도착 마커 */}
             {endPoint && (
               <Marker coordinate={endPoint} anchor={{ x: 0.5, y: 0.5 }}>
                 <View style={styles.markerEnd}>
