@@ -263,18 +263,6 @@ tailwind.config = {
       <span id="motionLabel" class="text-sm font-semibold text-on-surface-variant">감지 중...</span>
     </div>
 
-    <!-- 데스크탑/PC 모드: 누르고 있으면 달리기 -->
-    <div id="desktopRunBtn" class="hidden mb-4">
-      <p class="text-center text-xs text-on-surface-variant mb-2">📱 모바일에서 실제 가속도계 연동 · 지금은 데스크탑 모드</p>
-      <button
-        id="holdRunBtn"
-        onpointerdown="startManualRun(event)"
-        onpointerup="stopManualRun()"
-        onpointerleave="stopManualRun()"
-        class="w-full py-5 rounded-2xl font-display font-black text-xl text-on-primary select-none"
-        style="background:#abd600;touch-action:none;transition:opacity 0.1s"
-      >👟 누르고 있으면 달리기</button>
-    </div>
 
     <div class="grid grid-cols-2 gap-3 mb-6">
       <div class="glass rounded-2xl p-4 text-center">
@@ -1192,32 +1180,34 @@ function speak(text) {
   window.speechSynthesis.speak(utt);
 }
 
-// ─── Motion detection (가속도계 기반 자동 일시정지) ──────────────────────────
+// ─── Motion detection (가속도계 기반 달리기 감지) ─────────────────────────────
 let motionEnabled = false;
 let isMoving = false;
-let isManualRunning = false;
 let autoPausedByMotion = false;
 let motionlessFrames = 0;
 let accBuf = [];
 
-const MOTION_THRESH = 1.2;   // 이 이상이면 움직임으로 판단 (m/s²)
-const AUTO_PAUSE_FRAMES = 10; // 10 × 300ms = 3초 정지 시 자동 일시정지
+// 달리기 감지 임계값: e.acceleration(중력 제거) 기준 0.8 m/s²
+// 걷기 ~0.5, 달리기 ~1.5~4, 정지 ~0  — 넉넉하게 0.8로 설정
+const MOTION_THRESH    = 0.8;
+const ACC_BUF_SIZE     = 8;    // 8샘플(약 130ms) — 빠른 반응
+const AUTO_PAUSE_FRAMES = 13;  // 13 × 300ms ≈ 4초 정지 시 자동 일시정지
 
 function initMotion() {
-  accBuf = []; isMoving = false; isManualRunning = false;
+  accBuf = []; isMoving = false;
   autoPausedByMotion = false; motionlessFrames = 0;
 
   if (typeof DeviceMotionEvent !== 'undefined') {
     if (typeof DeviceMotionEvent.requestPermission === 'function') {
-      // iOS 13+ 권한 요청
+      // iOS 13+ — 버튼 탭 직후 호출이므로 권한 요청 가능
       DeviceMotionEvent.requestPermission()
-        .then(p => { p === 'granted' ? enableMotionSensor() : enableDesktopMode(); })
-        .catch(() => enableDesktopMode());
+        .then(p => { p === 'granted' ? enableMotionSensor() : enableNoSensorMode(); })
+        .catch(() => enableNoSensorMode());
     } else {
       enableMotionSensor(); // Android / 구형 iOS
     }
   } else {
-    enableDesktopMode(); // PC 브라우저
+    enableNoSensorMode(); // PC 브라우저
   }
 }
 
@@ -1228,11 +1218,14 @@ function enableMotionSensor() {
   setMotionUI(false);
 }
 
-function enableDesktopMode() {
+// 센서 없는 환경(PC 등): 거리 자동 진행 + 안내 표시
+function enableNoSensorMode() {
   motionEnabled = false;
-  document.getElementById('desktopRunBtn').classList.remove('hidden');
+  isMoving = true; // 센서 없으면 항상 달리는 상태로 간주
   document.getElementById('motionStatus').classList.remove('hidden');
-  setMotionUI(false);
+  setMotionUI(true);
+  const lbl = document.getElementById('motionLabel');
+  if (lbl) lbl.textContent = '📡 센서 없음 — 자동 진행';
 }
 
 function stopMotionSensor() {
@@ -1241,13 +1234,21 @@ function stopMotionSensor() {
 }
 
 function onDeviceMotion(e) {
-  const a = e.accelerationIncludingGravity;
-  if (!a) return;
-  const mag = Math.sqrt((a.x||0)**2 + (a.y||0)**2 + (a.z||0)**2);
-  const dyn = Math.abs(mag - 9.81); // 중력 제거 → 동적 가속도
+  // e.acceleration: 중력이 이미 제거된 순수 운동 가속도 (가장 정확)
+  // 없으면 accelerationIncludingGravity 에서 벡터 크기 - 9.81 로 근사
+  let dyn = 0;
+  if (e.acceleration && e.acceleration.x !== null) {
+    const a = e.acceleration;
+    dyn = Math.sqrt((a.x||0)**2 + (a.y||0)**2 + (a.z||0)**2);
+  } else if (e.accelerationIncludingGravity) {
+    const a = e.accelerationIncludingGravity;
+    const mag = Math.sqrt((a.x||0)**2 + (a.y||0)**2 + (a.z||0)**2);
+    dyn = Math.abs(mag - 9.81);
+  }
+
   accBuf.push(dyn);
-  if (accBuf.length > 15) accBuf.shift();
-  const avg = accBuf.reduce((s,v) => s + v, 0) / accBuf.length;
+  if (accBuf.length > ACC_BUF_SIZE) accBuf.shift();
+  const avg = accBuf.reduce((s, v) => s + v, 0) / accBuf.length;
 
   const wasMoving = isMoving;
   isMoving = avg > MOTION_THRESH;
@@ -1265,24 +1266,9 @@ function setMotionUI(moving) {
   const dot = document.getElementById('motionDot');
   const lbl = document.getElementById('motionLabel');
   if (!dot || !lbl) return;
-  dot.style.background   = moving ? '#abd600' : '#8e9379';
-  lbl.textContent        = moving ? '🏃 달리는 중' : '⏸ 정지 감지됨';
-  lbl.style.color        = moving ? '#abd600' : '#8e9379';
-}
-
-function startManualRun(e) {
-  if (e) e.preventDefault();
-  isManualRunning = true; setMotionUI(true);
-  if (autoPausedByMotion) {
-    autoPausedByMotion = false; isPaused = false; motionlessFrames = 0;
-    document.getElementById('pauseBanner').classList.add('hidden');
-  }
-  document.getElementById('holdRunBtn').style.opacity = '0.7';
-}
-
-function stopManualRun() {
-  isManualRunning = false; setMotionUI(false);
-  document.getElementById('holdRunBtn').style.opacity = '1';
+  dot.style.background = moving ? '#abd600' : '#8e9379';
+  lbl.textContent      = moving ? '🏃 달리는 중' : '⏸ 정지 감지됨';
+  lbl.style.color      = moving ? '#abd600' : '#8e9379';
 }
 
 // ─── Active run ───────────────────────────────────────────────────────────────
@@ -1294,7 +1280,6 @@ function startRun() {
   elapsed = 0; distCovered = 0; isPaused = false;
   simHR = 115; coachingMessages = []; firedTriggers = {};
   motionlessFrames = 0; autoPausedByMotion = false;
-  document.getElementById('desktopRunBtn').classList.add('hidden');
   document.getElementById('motionStatus').classList.add('hidden');
 
   goTo('countdownScreen','activeScreen');
@@ -1306,8 +1291,8 @@ function startRun() {
   runTimer = setInterval(() => {
     if (isPaused) return;
 
-    // ── 모션 체크 ──
-    const moving = motionEnabled ? isMoving : isManualRunning;
+    // ── 모션 체크 (센서 없으면 isMoving=true 로 고정됨) ──
+    const moving = isMoving;
     if (!moving) {
       motionlessFrames++;
       if (motionlessFrames >= AUTO_PAUSE_FRAMES && !autoPausedByMotion) {
@@ -1405,7 +1390,6 @@ function togglePause() {
 function endRun() {
   clearInterval(runTimer);
   stopMotionSensor();
-  document.getElementById('desktopRunBtn').classList.add('hidden');
   document.getElementById('motionStatus').classList.add('hidden');
   document.getElementById('finDist').textContent = fmtDist(distCovered);
   document.getElementById('finTime').textContent = fmtDuration(elapsed);
